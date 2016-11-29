@@ -2,6 +2,11 @@ import numpy as np
 from matplotlib import mlab
 import matplotlib.pyplot as plt
 
+
+
+def win_num_to_wave_pov(win_num, win_shift, win_length):
+    return (win_num - 2) * win_shift + win_length
+
 def my_specgram(x, NFFT=256, Fs=2, Fc=0, detrend=mlab.detrend_none,
              window=mlab.window_hanning, noverlap=128,
              cmap=None, xextent=None, pad_to=None, sides='default',
