@@ -10,12 +10,21 @@ from IPython.display import display, HTML,Markdown
 from scipy import signal
 import peakutils
 
+import scipy.io.wavfile as wav
+from matplotlib import animation
+from base64 import b64encode
+
+
 
 
 VIDEO_TAG = """<video controls autoplay>
-                 <source src="data:video/x-m4v;base64,{0}" type="video/mp4" >
+                 <src="data:video/x-m4v;base64,{0}" type="video/mp4" >
                 Your browser does not support the video tag.
                 </video>"""
+
+def display_animation_from_file(fname):
+
+    return HTML(data = '<video controls alt="test" src="data:video/x-m4v;base64,{0}" autoplay>'.format(b64encode(open(fname, "rb").read())))
 
 def anim_to_html(anim, fps = 5, fname = 'vid.mp4'):
     if not hasattr(anim, '_encoded_video'):
@@ -119,7 +128,7 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     peaks.index.name = 'peak time'
     peaks = peaks.reset_index()
     peaks['start time'] = peaks['peak time'] - back_prop * key_len_in_sec
-    peaks['end time'] = peaks['peak time'] - (1 - back_prop) * key_len_in_sec
+    peaks['end time'] = peaks['peak time'] + (1 - back_prop) * key_len_in_sec
 
     print 'peaks'
     display(peaks.describe())
@@ -127,6 +136,106 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
 
 
     return sfourier_df, ssignal_df, peaks
+
+def visualize_clicks(ssignal_df, input_df, peaks, rate, max_thresh, outfile = 'output.mp4', MAX_FRAMES = 25., _FRAME_BREAK = 3., SLOWDOWN = 1., figsz = (12,8)):
+    global ax, last, FRAME_BREAK, peaks_copy, mainline, ind, line, full_df
+    peaks_copy = peaks.copy()
+    FRAME_BREAK = _FRAME_BREAK
+    new_rate = int(rate/float(SLOWDOWN))
+    wav.write("subset_sound.wav", new_rate, ssignal_df['signal'].values)
+
+    df = input_df.copy()
+
+    TOTAL_TIME = float(df.index[-1] - df.index[0])
+    MAX_FRAMES = int(TOTAL_TIME / FRAME_BREAK * MAX_FRAMES)
+    SKIPS = df.shape[0] / MAX_FRAMES 
+    full_df = df.copy()
+
+    df = df[::SKIPS].copy()
+
+    fig = plt.figure(figsize = figsz)
+    print [np.min(np.min(input_df) * .8, 0), max_thresh/8.]
+    ax = plt.axes(ylim = [np.min(np.min(input_df) * .8, 0), max_thresh/8.])
+    line, = ax.plot([], [], lw=2)
+    mainline = ax.axvline(x = df.index[0], linewidth=1, c = 'k')
+
+
+    ind = 0
+    last = full_df.index[0] 
+
+    def set_x(update = False):
+        global last, full_df, peaks_copy, FRAME_BREAK, ax
+        # Update limits of view
+        if update:
+            last += FRAME_BREAK
+        ax.set_xlim(last, last + FRAME_BREAK)
+        
+        # Get dfs in view
+        df_inds, peak_inds = ((full_df.index >= last) & (full_df.index <= (last + FRAME_BREAK))), ((peaks_copy['peak time'] >= last) & (peaks_copy['peak time'] <= (last + FRAME_BREAK)))
+        sub_df, sub_peaks = full_df[df_inds], peaks_copy[peak_inds]
+        
+        # Plot the signals
+        line, = ax.plot(sub_df.index.values, sub_df['signal'].values, 'b', lw=2)
+        
+        # Plot the clicks
+        sub_peaks.apply(lambda x :  ax.axvspan(x['start time'], x['end time'], alpha=0.5, color='red') , axis = 1)
+        return line,
+
+    # initialization function: plot the background of each frame
+    def init():
+        global ax
+        line, = set_x()    
+        return line,
+
+    def animate(i):
+        global ind, line, last, mainline, FRAME_BREAK, ax
+        if mainline:
+            mainline.set_xdata(df.index[i])
+        else:
+            mainline = ax.axvline(x = df.index[i], linewidth=1, c = 'k')
+        
+        if df.index[i] >= (last + FRAME_BREAK):
+            line, = set_x(True)
+        
+        if ind < peaks_copy.shape[0]:
+            
+
+            next_peak =  peaks_copy.iloc[ind]['peak time']
+            
+            while df.index[i] >= next_peak:
+                if next_peak >= last:
+                    ax.axvline(x = next_peak, linewidth=2, c = 'y')
+                ind +=1
+
+                if ind < peaks_copy.shape[0]:
+                    next_peak =  peaks_copy.iloc[ind]['peak time']
+                else:
+                    next_peak =  1e15
+
+
+        return line,
+
+    fps = df.shape[0] / TOTAL_TIME / SLOWDOWN
+
+    # call the animator.  blit=True means only re-draw the parts that have changed.
+    anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                   frames= df.shape[0], interval=1, blit=True)
+
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=fps, metadata=dict(artist='Me'))#, bitrate=new_rate)
+    anim.save('im.mp4', writer=writer)
+    
+    subprocess.call(['ffmpeg', '-i', 'im.mp4', '-i', 'subset_sound.wav', '-c:v', 'copy', '-c:a',
+                     'aac', '-strict', 'experimental', outfile, '-y'])
+
+    out = os.path.splitext(outfile)[0] + '.m4v'
+    subprocess.call(['ffmpeg', '-i', outfile, '-vcodec', 'libx264', out, 'y'])
+    plt.close(fig)
+    print 'done'
+    return out
+
+
+
 
 def open_audio(raw_file, verbose = False, head = 5, plt_every = 16, figsz = (12, 8)):
 
@@ -143,6 +252,8 @@ def open_audio(raw_file, verbose = False, head = 5, plt_every = 16, figsz = (12,
     
     (rate,sig) = wav.read(wav_file)
 
+    if sig.shape[0] > 1:
+        sig = sig[:,0]
 
     signal_df = pd.DataFrame(sig, columns = ['signal'])
     signal_df.index = signal_df.index.values / float(rate)
