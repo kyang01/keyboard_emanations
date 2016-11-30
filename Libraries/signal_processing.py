@@ -3,15 +3,41 @@ from matplotlib import mlab
 import matplotlib.pyplot as plt
 
 
+def t_to_ind(t, MX_T, MX_S):
+    return int(float(t) * MX_S / MX_T)
 
-def win_num_to_wave_pov(win_num, win_shift, win_length):
-    return (win_num - 2) * win_shift + win_length
+
+def ind_to_t(ind, MX_T, MX_S, t0 = 0):
+    return (float(ind) / MX_S) * (MX_T - t0)  + t0
 
 def my_specgram(x, NFFT=256, Fs=2, Fc=0, detrend=mlab.detrend_none,
              window=mlab.window_hanning, noverlap=128,
              cmap=None, xextent=None, pad_to=None, sides='default',
              scale_by_freq=None, minfreq = None, maxfreq = None, **kwargs):
     """
+
+
+# dt = 0.0005
+# # 100, 400 and 200 Hz sine 'wave'
+# t = range(len(sig))
+# x = sig # the signal
+# NFFT = 1024       # the length of the windowing segments
+# Fs = int(1.0/dt)  # the sampling frequency
+
+# # modified specgram()
+
+# # plot
+# ax1 = plt.subplot(211)
+# _ = plt.plot(t, x)
+# _ = plt.subplot(212, sharex=ax1)
+
+# # the minfreq and maxfreq args will limit the frequencies 
+# Pxx, freqs, bins, im = spl.my_specgram(x, NFFT=NFFT, Fs=Fs, noverlap=900, 
+#                                 cmap=plt.cm.Accent, minfreq = 400, maxfreq = 12000)
+# _ = plt.show()
+# plt.close()
+
+
     http://stackoverflow.com/questions/19468923/cutting-of-unused-frequencies-in-specgram-matplotlib
     
     call signature::
