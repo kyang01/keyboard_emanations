@@ -9,8 +9,10 @@ import pandas as pd
 from IPython.display import display, HTML,Markdown
 from scipy import signal
 import peakutils
-
-
+from scipy.cluster.vq import kmeans2,vq, whiten
+from sklearn.cluster import KMeans
+from hmmlearn.hmm import MultinomialHMM
+from python_speech_features import mfcc
 
 VIDEO_TAG = """<video controls autoplay>
                  <source src="data:video/x-m4v;base64,{0}" type="video/mp4" >
@@ -155,3 +157,59 @@ def open_audio(raw_file, verbose = False, head = 5, plt_every = 16, figsz = (12,
         display(signal_df.head(head))
         signal_df['signal'][::plt_every].plot(title = 'Raw Measurements', figsize= figsz)
     return signal_df, rate, wav_file
+
+# Takes in sequential order of numpy arrays representing window for keypress 
+# Outputs (keypress x 80) numpy array with cepstrum applied to it
+def extract_cepstrum(keypress_sigs, rate, mfcc_start=2, mfcc_end=7):
+    keypress_feats = []
+    for keypress_sig in keypress_sigs:
+        mfcc_feat = mfcc(keypress_sig, rate, winlen=0.01, 
+        winstep=0.0025, numcep=16, nfilt=32, 
+        lowfreq=400, highfreq=12000)
+        keypress_feats.append(np.concatenate(mfcc_feat[mfcc_start:mfcc_end, :]).T)
+    data = np.vstack(keypress_feats)
+    return data
+
+# Takes data, clusters using kmeans, fits and decodes with an HMM
+def run_hmm(data, targ_s, whiten_data=True, num_clusters=50, space_smooth=10, trans_smooth=1):
+    if whiten_data:
+        data = whiten(data)
+    kmeans = KMeans(n_clusters=num_clusters).fit(data)
+
+    # Get labels from running clustering
+    labels = kmeans.labels_.reshape(-1, 1)
+
+    # Init spaces to reasonable values
+    space_inds = [i for i, letter in enumerate(targ_s) if letter == " "][:10]
+    spaces = kmeans.labels_[space_inds]
+
+    # Build transition matrix
+    trans_m = np.zeros((27, 27)) + trans_smooth
+    for i in range(len(targ_s)-1):
+        c, next_c = ord(targ_s[i]) - 97, ord(targ_s[i+1]) - 97
+        if c < 0:
+            c = 26
+        if next_c < 0:
+            next_c = 26
+        trans_m[c][next_c] += 1
+    row_sums = trans_m.sum(axis=1)
+    trans_m = trans_m / row_sums[:, np.newaxis]
+
+    # Build emission matrix
+    emiss_m = np.random.rand(27, num_clusters)
+    space_vec = np.zeros((num_clusters)) + space_smooth
+    for i in spaces:
+        space_vec[i] += 1
+    emiss_m[26, :] = space_vec
+    row_sums = emiss_m.sum(axis=1)
+    emiss_m = emiss_m / row_sums[:, np.newaxis]
+
+    # Create HMM
+    hmm = MultinomialHMM(n_components=27, verbose=True, init_params="e", params="se", tol=1e-4, n_iter=5000) 
+    hmm.n_features = num_clusters
+    hmm.transmat_ = trans_m
+    hmm.emissionprob_ = emiss_m
+    
+    # Fit and decode
+    hmm = hmm.fit(labels)
+    logprob, pred = hmm.decode(labels, algorithm='viterbi')
