@@ -22,37 +22,80 @@ from hmmlearn.hmm import MultinomialHMM
 from python_speech_features import mfcc
 
 
-def extract_cepstrum(df, rate, mfcc_start=2, mfcc_end=9):
-    mike_char_data = df[df.columns[list(df.columns).index('0'):]].values
-    mike_keypress_data = np.split(mike_char_data, mike_char_data.shape[0], axis=0)
-    keypress_sigs = [np.squeeze(l) for l in mike_keypress_data]
+def extract_cepstrum(df, rate, mfcc_start=0, mfcc_end=-1, winlen = 0.01, winstep = 0.0025,
+                    numcep = 16, nfilt = 32, lowfreq = 400, highfreq = 12000):
+    '''
+        Extracts the cepstrum features from the raw signal data 
 
+            df : a dataframe where the indices are the timepoint for each 
+                supposed key press 
 
+            rate : The rate at which the sound file was processed either when call
+                made to  spl.open_audio() or scipy.io.wavfile.wav()
+
+            mfcc_start/mfcc_end : indices to slice the feature vector
+
+            remainder of args are passed into the mfcc punction 
+    '''
+
+    # Convert raw signal into list of numpy arrays 
+    char_data = df[df.columns[list(df.columns).index('0'):]].values
+    keypress_sigs = [np.squeeze(l) for l in np.split(char_data, char_data.shape[0], axis=0)]
+    
+    # Create the keypress features one by one
     keypress_feats = []
     for keypress_sig in keypress_sigs:
-            #mfcc_feat = mfcc(keypress_sig, rate, winlen=0.04, 
-            #winstep=0.01, numcep=16, nfilt=32)
-        mfcc_feat = mfcc(keypress_sig, rate, winlen=0.01, 
-        winstep=0.0025, numcep=16, nfilt=32, 
-        lowfreq=400, highfreq=12000)
+        mfcc_feat = mfcc(keypress_sig, rate, winlen=winlen, 
+                         winstep=winstep, numcep=numcep, nfilt=nfilt, 
+                         lowfreq=lowfreq, highfreq=highfreq)
         keypress_feats.append(np.concatenate(mfcc_feat[mfcc_start:mfcc_end, :]).T)
-        # keypress_feats.append(np.concatenate(mfcc_feat[:, :]).T)
-        data = np.vstack(keypress_feats)
 
-    cepstrum_df = pd.DataFrame(data)
+    # Create cepstrum dataframe
+    cepstrum_df = pd.DataFrame(np.vstack(keypress_feats))
+
+    # Copy over true char labels
     cepstrum_df['char'] = df['char']
+
+    # Put the char labels at the front
     cepstrum_df = cepstrum_df.reindex(columns = [cepstrum_df.columns[-1]] + list(cepstrum_df.columns[:-1]))
 
     return cepstrum_df
+
 def cluster(df, whiten_data=True, num_clusters=50, n_init = 50, n_components = 30):
+    '''
+        Cluster the data frame (expected to be of cepstrum features but no required)
+        If n_components has a value, PCA will be performed with that value on the df
+        to create the input for KMeans. If not the input will be the raw data.
+
+            df : dataframe to cluster 
+
+            whiten_data : whether or not to standardize the data
+
+            num_clusters : the number of groups to target for kemans 
+
+            n_init : number of random restarts for kmeans algorithm
+
+            n_components : if specified, pca is performed on the df with this many components,
+                if None, no PCA is performed
+
+    '''
+
+    # Inds of data
     inds = df.dtypes == np.float64
 
-    if n_components:
+    # Perform PCA
+    if n_components:  
         pca = PCA(n_components=n_components)
+
+        # Transform data
         pca.fit(df.ix[:, inds].values)
         data = pca.transform(df.ix[:, inds].values)
     else:
         data = df.ix[:,inds].values
+
+    #
+    if whiten:
+        data = whiten(data)
     
     kmeans = KMeans(n_clusters=num_clusters, n_init = n_init).fit(data)
     
@@ -238,7 +281,9 @@ def run_hmm_model(input_df, n_unique, char_counts, A_df, Eta, n_iter = 10000, to
         
     hmm = hmm.fit(model_input)
 
-    return hmm.decode(model_input), hmm  
+    score, results = hmm.decode(model_input)
+
+    return score, results, hmm  
 
 def run_hmm(input_df, text, num_clusters, t_smooth = 1, verbose = True, do_all = False, tol = 1e-2):
 #     A_df, n_unique, unique_chars, id_to_char, char_to_id = build_transmission(text, t_smooth)
@@ -258,8 +303,8 @@ def run_hmm(input_df, text, num_clusters, t_smooth = 1, verbose = True, do_all =
         print 'Transmission smoothing:', t_smooth
         print 'Accuracy:', acc, 'Without spaces:', acc_wospace
         print 'guess:\n'
-        # print_color(estimate, text)
+        print_color(estimate, text)
 
-    return estimate, acc,acc_wospace, score, hmm
+    return estimate, acc, acc_wospace, score, hmm
 
     
