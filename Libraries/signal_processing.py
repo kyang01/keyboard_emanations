@@ -33,7 +33,7 @@ def display_animation_from_file(fname):
 
     return HTML(data = '<video controls alt="test" src="data:video/x-m4v;base64,{0}" autoplay>'.format(b64encode(open(fname, "rb").read())))
 
-def anim_to_html(anim, fps = 5, fname = 'vid.mp4'):
+def anim_to_html(anim, fps = 5, fname = 'videos/vid.mp4'):
     if not hasattr(anim, '_encoded_video'):
 #         with NamedTemporaryFile(suffix='.mp4') as f:
         with open(fname, 'w') as f:
@@ -42,7 +42,7 @@ def anim_to_html(anim, fps = 5, fname = 'vid.mp4'):
         anim._encoded_video = video.encode("base64")
     return VIDEO_TAG.format(anim._encoded_video)
 
-def display_animation(anim, fps = 5, fname = 'vid.mp4'):
+def display_animation(anim, fps = 5, fname = 'videos/vid.mp4'):
     plt.close(anim._fig)
     return HTML(anim_to_html(anim, fps, fname))
 
@@ -96,61 +96,51 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
         sfourier_df = sfourier_df[sfourier_df.index <= t1]
         ssignal_df = ssignal_df[ssignal_df.index <= t1]
 
-    # print 'sfourier_df:'
-    # sfourier_df.describe()
-    # sfourier_df.head()
-    # print 'ssignal_df:'
-    # ssignal_df.describe()
-    # ssignal_df.head()
+   
+    def find_nearest(array,value):
+        idx = (np.abs(array-value)).argmin()
+        return idx
+   
+        # print [find_nearest(vals, item) for item in to_add]
 
+   
+
+    # Plot with peaks detected
+    fig = plt.figure(figsize = figsz)
+    ax = plt.subplot(131)
+    ax2 = plt.subplot(132)
+    ax3 = plt.subplot(133)
 
     sig = sfourier_df['signal'].values
     # Get indexes withing thresholds
     indexes = peakutils.indexes(sig, min_dist = MIN_DIST, thres=min_thresh / float(sig.max()))
     indexes = indexes[(sig[indexes] <= max_thresh)]
 
-    def find_nearest(array,value):
-        idx = (np.abs(array-value)).argmin()
-        return idx
-
-
-    if to_add:
+    if to_add and len(to_add) > 0:
         vals = sfourier_df.index.values
         print to_add
         indexes =  np.append(indexes, [find_nearest(vals, item) for item in to_add])
-        # print [find_nearest(vals, item) for item in to_add]
-
 
     sfourier_df['is_peak'] = False
     sfourier_df.ix[sfourier_df.index[indexes], 'is_peak'] = True
 
-    # Plot with peaks detected
-    fig = plt.figure(figsize = figsz)
-    ax = plt.subplot(121)
-    ax2 = plt.subplot(122)
-    # _ = ax.set_ylim([0, max_thresh*1.1])
-
-    sfourier_df['signal'].plot(ax = ax)
-
-    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax, title = 'all')
-    ax.axhline(y = min_thresh, linewidth=1, c = 'r')
-    sfourier_df['signal'].plot(ax = ax2)
-
-    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax2, title = 'zoomed')
-    
-    print min_thresh * 1.1, sfourier_df['signal'].max() * .15
-    mx = np.max([min_thresh * 1.1, sfourier_df['signal'].max() * .15])
-    print mx
-    ax2.set_ylim((0, mx))
-
-    ax2.axhline(y = min_thresh, linewidth=1, c = 'r')
     print 'Number of Keys detected:', len(indexes)
 
 
-     # number of milliseconds for a key stroke
-    key_len_in_sec = KEY_LEN / 1000.
+    sfourier_df['signal'].plot(ax = ax)
+    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax, title = 'all')
+    ax.axhline(y = min_thresh, linewidth=1, c = 'r')
+    
+    sfourier_df['signal'].plot(ax = ax2)
+    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax2, title = 'zoomed')
+    ax2.axhline(y = min_thresh, linewidth=1, c = 'r')
 
-            
+    mx = np.max([min_thresh * 1.1, sfourier_df['signal'].max() * .15])
+    ax2.set_ylim((0, mx))
+    ax3.set_ylim((0, mx))
+
+    # number of milliseconds for a key stroke
+    key_len_in_sec = KEY_LEN / 1000.
 
     peaks = sfourier_df[sfourier_df['is_peak']].copy()
     del peaks['is_peak']
@@ -160,14 +150,46 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     peaks['start time'] = peaks['peak time'] - back_prop * key_len_in_sec
     peaks['end time'] = peaks['peak time'] + (1 - back_prop) * key_len_in_sec
 
-    print 'peaks'
-    # display(peaks.describe())
-    # display(peaks.head(head))
+
+
+
+    if not t0:
+        t0 = 0.0
+
+    t1 = t0 + 10.
+
+    sfourier_df = fourier_df.copy()
+    ssignal_df = signal_df.copy()
+    if t0:
+        sfourier_df = sfourier_df[sfourier_df.index >= t0]
+        ssignal_df = ssignal_df[ssignal_df.index >= t0]
+    if t1:
+        sfourier_df = sfourier_df[sfourier_df.index <= t1]
+        ssignal_df = ssignal_df[ssignal_df.index <= t1]
+
+
+    sig = sfourier_df['signal'].values
+    # Get indexes withing thresholds
+    indexes = peakutils.indexes(sig, min_dist = MIN_DIST, thres=min_thresh / float(sig.max()))
+    indexes = indexes[(sig[indexes] <= max_thresh)]
+
+
+
+    
+    mxt = t1 + 12.
+    sfourier_df['signal'].plot(ax = ax3)
+    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax3, title = 'zoomed beginning')
+    ax3.axhline(y = min_thresh, linewidth=1, c = 'r')
+    
+    
+
+    
+    
 
 
     return sfourier_df, ssignal_df, peaks
 
-def visualize_clicks(ssignal_df, input_df, peaks, all_peaks, rate, max_thresh, min_thresh = None, outfile = 'output.mp4', MAX_FRAMES = 25., _FRAME_BREAK = 3., SLOWDOWN = 1., figsz = (12,8)):
+def visualize_clicks(ssignal_df, input_df, peaks, all_peaks, rate, max_thresh, min_thresh = None, outfile = 'videos/output.mp4', MAX_FRAMES = 25., _FRAME_BREAK = 3., SLOWDOWN = 1., figsz = (12,8)):
     global ax, last, FRAME_BREAK, peaks_copy, mainline, ind, line, full_df, time_text
     peaks_copy = peaks.copy()
     FRAME_BREAK = _FRAME_BREAK
@@ -273,12 +295,12 @@ def visualize_clicks(ssignal_df, input_df, peaks, all_peaks, rate, max_thresh, m
 
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=fps, metadata=dict(artist='Me'))#, bitrate=new_rate)
-    anim.save('im.mp4', writer=writer)
+    anim.save('videos/im.mp4', writer=writer)
     
-    subprocess.call(['ffmpeg', '-i', 'im.mp4', '-i', 'subset_sound.wav', '-c:v', 'copy', '-c:a',
+    subprocess.call(['ffmpeg', '-i', 'videos/im.mp4', '-i', 'audio/subset_sound.wav', '-c:v', 'copy', '-c:a',
                      'aac', '-strict', 'experimental', outfile, '-y'])
 
-    out = os.path.splitext(outfile)[0] + '.m4v'
+    out = 'videos/' + os.path.splitext(outfile)[0] + '.m4v'
     subprocess.call(['ffmpeg', '-i', outfile, '-vcodec', 'libx264', out, '-y'])
     plt.close(fig)
     print 'done'
@@ -308,6 +330,10 @@ def open_audio(raw_file, verbose = False, head = 5, plt_every = 16, figsz = (12,
     signal_df = pd.DataFrame(sig, columns = ['signal'])
     signal_df.index = signal_df.index.values / float(rate)
     signal_df.index.name = 'time (s)'
+
+    signal_df['signal'] = signal_df['signal'] * 1000. / signal_df['signal'].max()
+
+
     if verbose:
         print '.wav file location:', wav_file
         print 'rate:', rate, 'measurements per second'
@@ -315,84 +341,5 @@ def open_audio(raw_file, verbose = False, head = 5, plt_every = 16, figsz = (12,
         print 'rate * length = ', signal_df.shape[0], 'measurements'
         # display(signal_df.head(head))
         signal_df['signal'][::plt_every].plot(title = 'Raw Measurements', figsize= figsz)
+
     return signal_df, rate, wav_file
-
-# Takes in sequential order of numpy arrays representing window for keypress 
-# Outputs (keypress x 80) numpy array with cepstrum applied to it
-def extract_cepstrum(keypress_sigs, rate, mfcc_start=2, mfcc_end=9):
-    keypress_feats = []
-    for keypress_sig in keypress_sigs:
-        mfcc_feat = mfcc(keypress_sig, rate, winlen=0.04, 
-        winstep=0.01, numcep=16, nfilt=32)
-        # mfcc_feat = mfcc(keypress_sig, rate, winlen=0.01, 
-        # winstep=0.0025, numcep=16, nfilt=32, 
-        # lowfreq=400, highfreq=12000)
-        # keypress_feats.append(np.concatenate(mfcc_feat[mfcc_start:mfcc_end, :]).T)
-        keypress_feats.append(np.concatenate(mfcc_feat[mfcc_start:mfcc_end, :]).T)
-        data = np.vstack(keypress_feats)
-    return data
-
-def transform_to_str(pred):
-    s = ''
-    for i in pred:
-        if i == 26:
-            s += ' '
-        else:
-            s += chr(97 + i)
-    return s
-
-
-def run_hmm(data, targ_s, whiten_data=True, num_clusters=50, space_smooth=5, trans_smooth=1, iters = 10, limit= 1e-3, best = 1e10, besthmm = None, bestpred = None):
-    if whiten_data:
-        data = whiten(data)
-    kmeans = KMeans(n_clusters=num_clusters).fit(data)
-
-    # Get labels from running clustering
-    labels = kmeans.labels_.reshape(-1, 1)
-
-    # Init spaces to reasonable values
-    space_inds = [i for i, letter in enumerate(targ_s) if letter == " "][:15]
-    spaces = kmeans.labels_[space_inds]
-
-    # Build transition matrix
-    trans_m = np.zeros((27, 27)) + trans_smooth
-    for i in range(len(targ_s)-1):
-        c, next_c = ord(targ_s[i]) - 97, ord(targ_s[i+1]) - 97
-        if c < 0:
-            c = 26
-        if next_c < 0:
-            next_c = 26
-        trans_m[c][next_c] += 1
-    row_sums = trans_m.sum(axis=1)
-    trans_m = trans_m / row_sums[:, np.newaxis]
-
-    
-
-    # Create HMM
-    
-    # Build emission matrix
-    emiss_m = np.random.rand(27, num_clusters)
-    space_vec = np.zeros((num_clusters)) + space_smooth
-    for i in spaces:
-        space_vec[i] += 1
-    emiss_m[26, :] = space_vec
-    row_sums = emiss_m.sum(axis=1)
-    emiss_m = emiss_m / row_sums[:, np.newaxis]
-
-    hmm = MultinomialHMM(n_components=27, verbose=False, init_params="e", params="se", tol=limit, n_iter=5000) 
-    hmm.n_features = num_clusters
-    hmm.transmat_ = trans_m
-    hmm.emissionprob_ = emiss_m
-    
-    # Fit and decode
-    hmm = hmm.fit(labels)
-    logprob, pred = hmm.decode(labels, algorithm='viterbi')
-    print 'score:', logprob
-    if logprob < best:
-        print 'new best:'
-        best = logprob
-        besthmm = hmm
-        bestpred = pred
-        print transform_to_str(pred)
-    
-    return besthmm, best, bestpred
