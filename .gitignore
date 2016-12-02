@@ -3,3 +3,4 @@ videos/*
 audio/*
 data/CHARACTER_INPUTS.csv
 data/perfect_dataset.csv
+*.pyc
