@@ -27,7 +27,7 @@ from scipy.cluster.vq import kmeans2,vq, whiten
 from sklearn.cluster import KMeans
 
 # Core
-import sys
+import sys, re
 from collections import Counter
 
 # HMM models 
@@ -505,4 +505,56 @@ def run_hmm(input_df, text, num_clusters, t_smooth = 1, verbose = True,
 
     return estimate, acc, acc_wospace, score, hmm
 
-    
+DEFAULT_WEBPAGES = ['https://www.gutenberg.org/files/11/11-h/11-h.htm', 'https://www.gutenberg.org/files/1342/1342-h/1342-h.htm',
+               'https://www.gutenberg.org/files/46/46-h/46-h.htm', 'https://www.gutenberg.org/files/84/84-h/84-h.htm',
+               'https://www.gutenberg.org/files/76/76-h/76-h.htm', 'https://www.gutenberg.org/files/844/844-h/844-h.htm',
+               'https://www.gutenberg.org/files/53638/53638-h/53638-h.htm', 'https://www.gutenberg.org/files/2542/2542-h/2542-h.htm',
+               'https://www.gutenberg.org/files/1400/1400-h/1400-h.htm', 'https://www.gutenberg.org/files/98/98-h/98-h.htm',
+               'https://www.gutenberg.org/files/74/74-h/74-h.htm', 'https://www.gutenberg.org/files/53641/53641-h/53641-h.html',
+               'https://www.gutenberg.org/files/1232/1232-h/1232-h.htm', 'https://www.gutenberg.org/files/1661/1661-h/1661-h.htm',
+               'https://www.gutenberg.org/files/345/345-h/345-h.htm', 'https://www.gutenberg.org/files/160/160-h/160-h.htm',
+               'https://www.gutenberg.org/files/5200/5200-h/5200-h.htm', 'http://www.gutenberg.org/cache/epub/30254/pg30254.html',
+               'https://www.gutenberg.org/files/1952/1952-h/1952-h.htm', 'https://www.gutenberg.org/files/2600/2600-h/2600-h.htm',
+               'https://www.gutenberg.org/files/174/174-h/174-h.htm', 'https://www.gutenberg.org/files/2701/2701-h/2701-h.htm']  
+
+
+def scrape(webpages = DEFAULT_WEBPAGES):
+    '''
+        Scrapes a list of webpages  
+
+    '''
+    # Dictioanry of result for each webpage 
+    results = {}
+
+    # String to hold all text
+    raw_text_all = ''
+
+    # Chars to keep
+    unique_chars = [' '] + map(lambda x : chr(x + ord('a')), range(26))
+
+    for page in tqdm(webpages):
+
+        # Grab the text from the page
+        html = urllib.urlopen(webpage).read()
+        soup = BeautifulSoup(html, 'html.parser')
+        texts = soup.findAll(text=True)
+
+        #  Only keep the visible portion
+        def visible(element):
+            if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
+                return False
+            elif re.match('<!--.*-->', str(element.encode('utf-8'))):
+                return False
+            return True
+
+        # Grab the raw text and filter for our chars 
+        raw_text = filter(lambda x : x in unique_chars, ' '.join(filter(visible, texts)).replace('\r\n', ' ').replace('\n', ' ').replace('\u2018', '').replace('\u2019', '').lower())
+        raw_text = ' '.join(raw_text.split())
+        
+        # Save
+        results[page] = raw_text
+        raw_text_all += raw_text
+
+        # Sleep
+        time.sleep(2)
+    return raw_text_all, results

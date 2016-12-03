@@ -245,7 +245,7 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     indexes = indexes[(sig[indexes] <= max_thresh)]
     
     # Plot first 10 seconds of clip
-    fourier_df['signal'].iloc[indexes].plot(ax = ax3)
+    fourier_df['signal'].plot(ax = ax3)
     fourier_df['signal'].iloc[indexes].plot(style='*', ax=ax3, title = 'zoomed beginning')
     ax3.axhline(y = min_thresh, linewidth=1, c = 'r')
     ax3.set_ylim((0, mx))
@@ -487,7 +487,7 @@ def open_audio(raw_file, verbose = False, plt_every = 16, figsz = (12, 8)):
     signal_df.index.name = 'time (s)'
 
     # Scale signal to have standard deviation of 100
-    signal_df['signal'] = signal_df['signal'] * 100. / signal_df['signal'].std()
+    signal_df['signal'] = signal_df['signal']  / signal_df['signal'].std()
 
     # Print out
     if verbose:
