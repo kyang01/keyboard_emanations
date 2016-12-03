@@ -14,6 +14,7 @@ Exploring unsupervised learning techniques for predicting keystrokes presses onl
 ├── LABLED_CHAR_INPUTS_COMBINED_RESULTS-51.7%.csv
 ├── PreProcessing.ipynb  
 ├── Processing.ipynb
+├── Compare Noise.ipynb
 ├── README.md
 └──.gitignore	
 ```
@@ -37,9 +38,12 @@ Compare Noise.ipynb
 - Has functionality to test what presence of white noise will disrupt the algorithm
 
 
-Notebooks are easily viewable through the github browser:
+Notebooks can be viewed using ipython and jupyer notebook
 
-https://github.com/kyang01/keyboard_emanations/blob/master/PreProcessing.ipynb
+```
+	cd keyboard_emanations
+	jupyter notebook
+```
 
 ## Dependencies 
 
