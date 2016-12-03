@@ -20,9 +20,18 @@ Exploring unsupervised learning techniques for predicting keystrokes presses onl
 
 Note: Much of the data we used is missing due to file contraints of github. 
 
-PreProcessing.ipynb  is where the peak detection and data visualization is done
+PreProcessing.ipynb : The notebook tjat was used for peak detection and data exploration.
 
-Processing.ipynb is where the machine kmeans/hmm model is implemented 
+- Categorizes key press data
+- Creates output for the Processing notebook
+- Builds video showing key presses with overlayed text
+
+Processing.ipynb : The notebook that was used to tune the text prediction algorithms
+
+- Clusters detected keystrokes using kmeans 
+- Uses bigrams combined with kmeans clusters to construct an hmm to predict mappings of keystroaks to characters 
+- Has functionality for testing a variety of parameters easily, stored to the results folder
+- Has functionality to test what presence of white noise will disrupt the algorithm
 
 ## Dependencies 
 
