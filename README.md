@@ -31,7 +31,11 @@ Processing.ipynb : The notebook that was used to tune the text prediction algori
 - Clusters detected keystrokes using kmeans 
 - Uses bigrams combined with kmeans clusters to construct an hmm to predict mappings of keystroaks to characters 
 - Has functionality for testing a variety of parameters easily, stored to the results folder
+
+Compare Noise.ipynb
+
 - Has functionality to test what presence of white noise will disrupt the algorithm
+
 
 Notebooks are easily viewable through the github browser:
 
