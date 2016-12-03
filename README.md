@@ -33,6 +33,10 @@ Processing.ipynb : The notebook that was used to tune the text prediction algori
 - Has functionality for testing a variety of parameters easily, stored to the results folder
 - Has functionality to test what presence of white noise will disrupt the algorithm
 
+Notebooks are easily viewable through the github browser:
+
+https://github.com/kyang01/keyboard_emanations/blob/master/PreProcessing.ipynb
+
 ## Dependencies 
 
 matplotlib.animation among others (ffmpeg) 
