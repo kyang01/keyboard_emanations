@@ -21,6 +21,7 @@ Exploring unsupervised learning techniques for predicting keystrokes presses onl
 Note: Much of the data we used is missing due to file contraints of github. 
 
 PreProcessing.ipynb  is where the peak detection and data visualization is done
+
 Processing.ipynb is where the machine kmeans/hmm model is implemented 
 
 ## Dependencies 
