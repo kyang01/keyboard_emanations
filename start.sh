@@ -18,11 +18,13 @@ fi
 # check if virtual environment has been created before
 if [ ! -d "venv" ]; then
   virtualenv -p python3 venv
+  # activate the environment
+  source venv/bin/activate
   pip install -r requirements.txt
+else
+	# activate the environment
+	source venv/bin/activate
 fi
-
-# activate the environment
-source venv/bin/activate
 
 # run the gui
 python app.py
