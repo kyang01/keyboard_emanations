@@ -378,6 +378,15 @@ class Player(QWidget):
 
         self.addToPlaylist(playlist)
 
+    def get_current_file(self):
+        inds = self.playlistView.selectedIndexes()
+        if len(inds) == 1:
+            index = inds[0]
+            location = self.playlistModel.m_playlist.media(index.row()).canonicalUrl()
+            return location.path()
+            
+        
+
     def open(self):
         fileNames, _ = QFileDialog.getOpenFileNames(self, "Open Files")
         self.addToPlaylist(fileNames)

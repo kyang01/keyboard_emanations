@@ -8,8 +8,9 @@ from .VideoWidget import *
 
 class MainWindow(QWidget):
 
-    def __init__(self, open_loc = None):
-        super(self.__class__, self).__init__()
+    def __init__(self, parent = None):
+        super(self.__class__, self).__init__(parent)
+        self.parent = parent
 
         # Build GUI
         self.setupUi()
@@ -54,6 +55,14 @@ class VisualizeWidget(QWidget):
         super(self.__class__, self).__init__(parent)
         # MainWindow
         self.parent = parent 
+        self.processed = self.parent.parent.processed
+        self.people_csv = os.path.join(self.processed, 'people.csv')
+
+        if not os.path.exists(self.people_csv):
+            pd.DataFrame(columns = config.PEOPLE_COLUMNS).to_csv(self.people_csv, index_col = False)
+
+        self.decoders = []
+        self.people = []
         
         # Setup the UI for the visualize widget
         self.setupUi()
@@ -63,40 +72,221 @@ class VisualizeWidget(QWidget):
             Builds the form that contains the options necessary 
             to determine how to convert the images
         '''
+        # We use the grid layout to create the ui
         grid = QGridLayout()
         grid.setSpacing(10)
 
-        # Add widget to hold an image
-         # Object view
+        def manage_decoders():
+            '''
+                Have a QListWidget to manage the audio decoders 
+            '''
+            # create layout
+            itemsGroup = QGroupBox("Decoders", self)
+            itemsLayout = QVBoxLayout(itemsGroup)
 
-        self.itemsGroup = QGroupBox("Samples", self)
-        self.itemsLayout = QVBoxLayout(self.itemsGroup)
-        self.itemsLayout.addWidget(QListWidget())
-        self.itemsLayout.addWidget(QPushButton("Add Current Audio"))
-        self.itemsGroup.setLayout(self.itemsLayout)
-        grid.addWidget(self.itemsGroup, 0, 0, 2, 2)
+            # List of decoders
+            self.decoder_list = QListWidget()
+            itemsLayout.addWidget(self.decoder_list)
 
-        self.itemsLayout = QVBoxLayout(self.itemsGroup)
-        self.itemsLayout.addWidget(QListWidget())
-        self.itemsGroup.setLayout(self.itemsLayout)
-        grid.addWidget(self.itemsGroup, 1, 0, 1, 2)
+            # button to add decoder
+            add_decoder_btn = QPushButton("Add New Decoder from Selected Audio")
+            add_decoder_btn.clicked.connect(self.add_decoder)            
+            itemsLayout.addWidget(add_decoder_btn)
 
-        # Add MDI area
-        self.mdi = QMdiArea(self)
-        self.mdiArea = QGroupBox("", self)
-        self.mdiLayout = QHBoxLayout(self.mdiArea)
-        self.mdiLayout.addWidget(self.mdi)
-        self.mdiArea.setLayout(self.mdiLayout)
-        grid.addWidget(self.mdiArea, 0, 2, 2, 4)
+            # set layout
+            itemsGroup.setLayout(itemsLayout)
+            grid.addWidget(itemsGroup, 0, 0, 2, 2)
 
-        # Group sliders together
-        self.videoGroup = QGroupBox("Display", self)
-        self.videoLayout = QVBoxLayout(self.videoGroup)
-        self.videoLayout.addWidget(Player([]))
-        self.videoGroup.setLayout(self.videoLayout)
-        grid.addWidget(self.videoGroup, 2, 0, 10, 6)
-        
+        def manage_mdi():
+            '''
+                Create the MDI space for random widgets
+            '''
+             # Add MDI area
+            self.mdi = QMdiArea(self)
+            mdiArea = QGroupBox("", self)
+            mdiLayout = QHBoxLayout(mdiArea)
+            mdiLayout.addWidget(self.mdi)
+            mdiArea.setLayout(mdiLayout)
+            grid.addWidget(mdiArea, 0, 2, 2, 4)
+
+        def manage_display():
+            '''
+                Space to play audio/visual
+            '''
+            # Group sliders together
+            videoGroup = QGroupBox("Display", self)
+            videoLayout = QVBoxLayout(videoGroup)
+            self.media_player = Player([])
+            videoLayout.addWidget(self.media_player)
+            videoGroup.setLayout(videoLayout)
+            grid.addWidget(videoGroup, 2, 0, 10, 6)
+
+        manage_decoders()
+        manage_mdi()
+        manage_display()
+
         self.setLayout(grid) 
+
+    def add_decoder(self):
+        '''
+            Adds a new decoder object from the selected audio file
+        '''
+
+        # check to make sure an audio file is selected else throw error
+        current_file = self.media_player.get_current_file()
+        
+        # Make sure a file was selected
+        if not current_file: 
+            QMessageBox.warning(self, 'No File Selected!',
+                                            "Select an audio file from the bottom list" ,
+                                            QMessageBox.Ok)
+            return
+
+        # Make sure we have a valid extension
+        if os.path.splitext(current_file)[1].lower() not in config.AUDIO_EXTS:
+            QMessageBox.warning(self, 'Invalid Extension!',
+                                            "Valid audio file extensions:\n%s" % ' '.join(config.AUDIO_EXTS),
+                                            QMessageBox.Ok)
+            return
+         
+
+        class CreateDecoder(QWidget):
+            def __init__(self, parent, current_file):
+                QWidget.__init__(self)
+                self.parent = parent
+                self.current_file = current_file
+                print(current_file)
+
+                self.buildUI()
+
+
+            def buildUI(self):
+                # create the form
+                fbox = QFormLayout()
+                fbox.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+
+                # be able to match recording to a person
+                self.people_stack = QStackedWidget()
+
+                self.people_selected = QComboBox()
+                self.people_selected.addItem('None')
+                self.people_stack.addWidget(self.people_selected)
+
+                self.people_input = QLineEdit()
+                self.people_stack.addWidget(self.people_input)
+                fbox.addRow(QLabel('Person:'), self.people_stack)
+
+                # Button to add new person
+                self.new_person_button = QPushButton('New Person')
+                self.new_person_button.clicked.connect(self.add_new)
+                fbox.addRow(QLabel(''), self.new_person_button)
+
+                # Choose input text
+                sourceFileDialog, self.source_input_text = createFileDialog(additionalExec = self.update_input_text)
+                fbox.addRow(QLabel("Input Text:"), sourceFileDialog)
+
+                # Choose output text
+                sourceFileDialog, self.source_ouput_text = createFileDialog(additionalExec = self.update_output_text)
+                fbox.addRow(QLabel("Output Text:"), sourceFileDialog)
+
+                # Choose output text
+                sourceFileDialog, self.source_actual_text = createFileDialog(additionalExec = self.update_actual_text)
+                fbox.addRow(QLabel("Actual Text:"), sourceFileDialog)
+
+                # Show if the file has metadata it can extract
+                metadata = Decoder.extract_metadata('test')
+                metadata_str = json.dumps(metadata)
+                fbox.addRow(QLabel("Metadata:"), QLabel(metadata_str))
+
+                # submit button
+                create_decoder = QPushButton('Create Decoder')
+                create_decoder.clicked.connect(self.add_decoder)
+                fbox.addRow(create_decoder)
+
+                # set the layout
+                self.setLayout(fbox)
+
+            def add_decoder(self):
+
+                # determine if we are creating a new person
+                person_ind = self.people_stack.currentIndex()
+
+                # old person
+                if person_ind == 0:
+                    person = str(self.people_selected.currentText())
+
+                # new person
+                elif person_ind == 1:
+                    person = str(self.people_input.text())
+
+                    #create new entry in people.csv
+
+
+                # error
+                else:
+                    assert(False)
+
+                print(person)
+
+                pass
+
+            def add_new(self):
+                self.people_stack.setCurrentIndex(1)
+
+
+            def update_input_text(self, val):
+
+                print(val)
+                
+            def update_output_text(self, val):
+
+                print(val)
+                
+            def update_actual_text(self, val):
+
+                print(val)
+                
+
+
+        self.w = CreateDecoder(self, current_file)
+        self.w.show()
+
+
+
+        # create popup that asks for additional files to attach, metadata to pull
+
+        # create decoder object
+
+        # save to process folder
+
+        # load the decoders to the list view
+        self.load_decoders()
+
+        
+
+    def load_decoders(self):
+        '''
+            Loads any decoders from the process folder
+        '''
+        # check for decoders in process folder
+
+        # load into list view
+        pass
+
+    def load_people(self):
+        '''
+            Loads person objects into memory
+        '''
+        # find person objects in processing folder
+
+        # loads into memory and displays
+        pass
+
+    def add_person(self):
+        '''
+            Adds a new person 
+        '''
+        pass
 
 class StartingWindow(QMainWindow):
     '''
