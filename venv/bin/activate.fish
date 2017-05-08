@@ -36,7 +36,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/michaelfarrell/GoogleDrive/SPU13/keyboard_emanations/venv"
+set -gx VIRTUAL_ENV "/Users/benbrook/Code.noindex/keyboard_emanations/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH
