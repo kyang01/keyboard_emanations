@@ -6,6 +6,7 @@ data/perfect_dataset.csv
 *.pyc
 venv/*
 venv/
+venv
 process/*
 process
 process/

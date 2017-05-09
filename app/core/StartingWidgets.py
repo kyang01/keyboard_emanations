@@ -21,7 +21,6 @@ class MainWindow(QWidget):
         '''
         # Widget dealing with visualizing 
         self.visualize = VisualizeWidget(self)
-        self.mdi = self.visualize.mdi
         
         # Create adjustable layout
         self.layout = QHBoxLayout(self)
@@ -32,19 +31,6 @@ class MainWindow(QWidget):
 
         # Set the layout
         self.setLayout(self.layout)
-
-    def addWidg(self, WidgClass, **kwargs):
-        '''
-            Adds a widget to the the mdi area
-        '''
-        # Create new widget
-        sub_widget = WidgClass(self, **kwargs)
-
-        # Add the window and display it
-        self.mdi.addSubWindow(sub_widget)
-
-        # Show the new widget
-        sub_widget.show()
 
 class VisualizeWidget(QWidget):
     '''
@@ -57,9 +43,12 @@ class VisualizeWidget(QWidget):
         self.parent = parent 
         self.processed = self.parent.parent.processed
         self.people_csv = os.path.join(self.processed, 'people.csv')
+        self.tree = None
 
         if not os.path.exists(self.people_csv):
-            pd.DataFrame(columns = config.PEOPLE_COLUMNS).to_csv(self.people_csv, index_col = False)
+            df = pd.DataFrame(columns = config.PEOPLE_COLUMNS)
+            df = df.append(pd.Series({'name' : "None", 'decoders' : ','}), ignore_index = True)
+            df.to_csv(self.people_csv, index = False)
 
         self.decoders = []
         self.people = []
@@ -85,47 +74,131 @@ class VisualizeWidget(QWidget):
             itemsLayout = QVBoxLayout(itemsGroup)
 
             # List of decoders
-            self.decoder_list = QListWidget()
+            self.decoder_list = self.buildTree()
+            self.decoder_list.setMinimumWidth(400)
+            # self.decoder_list.header().resizeSection(0, 150)
             itemsLayout.addWidget(self.decoder_list)
-
-            # button to add decoder
-            add_decoder_btn = QPushButton("Add New Decoder from Selected Audio")
-            add_decoder_btn.clicked.connect(self.add_decoder)            
-            itemsLayout.addWidget(add_decoder_btn)
 
             # set layout
             itemsGroup.setLayout(itemsLayout)
-            grid.addWidget(itemsGroup, 0, 0, 2, 2)
+            # itemsGroup.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
+            grid.addWidget(itemsGroup, 0, 0, 2, 6)
 
-        def manage_mdi():
+        def manage_processing():
             '''
                 Create the MDI space for random widgets
             '''
-             # Add MDI area
-            self.mdi = QMdiArea(self)
-            mdiArea = QGroupBox("", self)
-            mdiLayout = QHBoxLayout(mdiArea)
-            mdiLayout.addWidget(self.mdi)
-            mdiArea.setLayout(mdiLayout)
-            grid.addWidget(mdiArea, 0, 2, 2, 4)
 
-        def manage_display():
+            self.process_stack = QStackedWidget()
+            self.mdi = QMdiArea()
+            self.process_stack.addWidget(self.mdi)
+
+             # Add MDI area
+            self.process_area = QGroupBox("", self)
+            process_layout = QHBoxLayout(self.process_area)
+            process_layout.addWidget(self.process_stack)
+            self.process_area.setLayout(process_layout)
+            # self.process_area.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
+            grid.addWidget(self.process_area, 0, 6, 2, 6)
+
+        def manage_display(external = True):
             '''
                 Space to play audio/visual
             '''
-            # Group sliders together
-            videoGroup = QGroupBox("Display", self)
-            videoLayout = QVBoxLayout(videoGroup)
-            self.media_player = Player([])
-            videoLayout.addWidget(self.media_player)
-            videoGroup.setLayout(videoLayout)
-            grid.addWidget(videoGroup, 2, 0, 10, 6)
+            self.media_player = Player([], add_button = self.add_decoder)
+            if external:
+                self.media_player.setGeometry(0, 0, 800, 400)
+                self.media_player.show()
+            else:
+                # Group sliders together
+                videoGroup = QGroupBox("Display", self)
+                videoLayout = QVBoxLayout(videoGroup)
+                
+                videoLayout.addWidget(self.media_player)
+                videoGroup.setLayout(videoLayout)
+                # videoGroup.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+                grid.addWidget(videoGroup, 3, 0, 2, 12)
+
+        def add_horizontal_split():
+            verticalLine    =  QFrame()
+            verticalLine.setFrameStyle(QFrame.HLine)
+            # verticalLine.setSizePolicy(QSizePolicy.Minimum,QSizePolicy.Expanding)
+
+            grid.addWidget(verticalLine,2,0,1,12) 
 
         manage_decoders()
-        manage_mdi()
+        manage_processing()
+        # add_horizontal_split()
         manage_display()
 
+
         self.setLayout(grid) 
+        
+    def tree_change(self):
+        '''
+            When the item in the tree is changed
+        '''
+        # Grab the currently selected item
+        item = self.tree.currentItem()
+
+        # Display Decoder information
+        if type(item) == DecoderTreeWidget:
+            new_widget = item.decoder.update_display(self.process_area)
+            self.process_stack.insertWidget(1, new_widget)
+            self.process_stack.setCurrentIndex(1)
+        elif type(item) == TreeWidget:
+            self.process_stack.setCurrentIndex(0)
+        elif type(item) == AudioTreeWidget:
+            self.media_player.playlist.clear()
+            self.media_player.addToPlaylist(item.audio_files + item.video_files)
+
+    def buildTree(self):
+        '''
+            Builds the hierarchy tree to visualize the results 
+        '''
+        # Either create new tree or refresh clear the old tree
+        if not self.tree:
+            self.tree = QTreeWidget()
+
+            # Callback for changing item in tree
+            self.tree.itemSelectionChanged.connect(self.tree_change)
+        else:
+            self.tree.clear()
+            self.tree.reset()
+        
+        # Set the headers
+        self.tree.setHeaderItem(QTreeWidgetItem(["People"]))
+        
+        # Create a branch for each plate and then recursively build
+        self.people = {}
+        people_dict = self.get_people_dict()
+        for person in self.get_people():
+            branch = TreeWidget(self.tree, [person])
+            new_person = Person(self, person, people_dict[person])
+            new_person.buildTree(branch)
+            self.people[person] = new_person
+
+        return self.tree
+
+    def get_people(self):
+        df = pd.read_csv(self.people_csv, index_col = False)
+        return list(df['name'].values)
+
+    def get_people_dict(self):
+        df = pd.read_csv(self.people_csv, index_col = False)
+        return df.set_index('name')['decoders'].to_dict()
+
+    def add_person(self, person):
+        df = pd.read_csv(self.people_csv, index_col = False)
+        df = df.append(pd.Series({'name' : person, 'decoders' : ','}), ignore_index = True)
+        df.to_csv(self.people_csv, index = False)
+
+    def update_person(self, person, fold_num):
+        df = pd.read_csv(self.people_csv, index_col = False)
+        df = df.set_index('name')
+        df.ix[person, 'decoders'] = ','.join(str(df.ix[person, 'decoders']).split(',')  + [str(fold_num)])
+        df = df.reset_index()
+        df.to_csv(self.people_csv, index = False)
 
     def add_decoder(self):
         '''
@@ -138,7 +211,7 @@ class VisualizeWidget(QWidget):
         # Make sure a file was selected
         if not current_file: 
             QMessageBox.warning(self, 'No File Selected!',
-                                            "Select an audio file from the bottom list" ,
+                                            "Use 'Open Audio/Visual' and select an audio file in the list above" ,
                                             QMessageBox.Ok)
             return
 
@@ -148,17 +221,14 @@ class VisualizeWidget(QWidget):
                                             "Valid audio file extensions:\n%s" % ' '.join(config.AUDIO_EXTS),
                                             QMessageBox.Ok)
             return
-         
-
+        
         class CreateDecoder(QWidget):
             def __init__(self, parent, current_file):
                 QWidget.__init__(self)
                 self.parent = parent
                 self.current_file = current_file
-                print(current_file)
-
+                self.dir = os.path.dirname(self.current_file)
                 self.buildUI()
-
 
             def buildUI(self):
                 # create the form
@@ -169,7 +239,9 @@ class VisualizeWidget(QWidget):
                 self.people_stack = QStackedWidget()
 
                 self.people_selected = QComboBox()
-                self.people_selected.addItem('None')
+                self.people_selected.addItems(self.parent.get_people())
+
+                #create new entry in people.csv
                 self.people_stack.addWidget(self.people_selected)
 
                 self.people_input = QLineEdit()
@@ -183,19 +255,28 @@ class VisualizeWidget(QWidget):
 
                 # Choose input text
                 sourceFileDialog, self.source_input_text = createFileDialog(additionalExec = self.update_input_text)
+                input_text_fname = os.path.join(self.dir, 'input_text.txt')
+                if os.path.exists(input_text_fname):
+                    self.source_input_text.setText(input_text_fname)
                 fbox.addRow(QLabel("Input Text:"), sourceFileDialog)
 
                 # Choose output text
-                sourceFileDialog, self.source_ouput_text = createFileDialog(additionalExec = self.update_output_text)
+                sourceFileDialog, self.source_output_text = createFileDialog(additionalExec = self.update_output_text)
+                output_text_fname = os.path.join(self.dir, 'output_text.txt')
+                if os.path.exists(output_text_fname):
+                    self.source_output_text.setText(output_text_fname)
                 fbox.addRow(QLabel("Output Text:"), sourceFileDialog)
 
                 # Choose output text
                 sourceFileDialog, self.source_actual_text = createFileDialog(additionalExec = self.update_actual_text)
+                actual_text_fname = os.path.join(self.dir, 'actual_text.txt')
+                if os.path.exists(actual_text_fname):
+                    self.source_actual_text.setText(actual_text_fname)
                 fbox.addRow(QLabel("Actual Text:"), sourceFileDialog)
 
                 # Show if the file has metadata it can extract
-                metadata = Decoder.extract_metadata('test')
-                metadata_str = json.dumps(metadata)
+                self.metadata = Decoder.extract_metadata(self.current_file)
+                metadata_str = textwrap.fill(json.dumps(self.metadata), 50)
                 fbox.addRow(QLabel("Metadata:"), QLabel(metadata_str))
 
                 # submit button
@@ -208,31 +289,67 @@ class VisualizeWidget(QWidget):
 
             def add_decoder(self):
 
-                # determine if we are creating a new person
-                person_ind = self.people_stack.currentIndex()
+                def get_person():
+                    # determine if we are creating a new person
+                    person_ind = self.people_stack.currentIndex()
 
-                # old person
-                if person_ind == 0:
-                    person = str(self.people_selected.currentText())
+                    # old person
+                    if person_ind == 0:
+                        person = str(self.people_selected.currentText())
 
-                # new person
-                elif person_ind == 1:
-                    person = str(self.people_input.text())
+                    # new person
+                    elif person_ind == 1:
+                        person = str(self.people_input.text())
 
-                    #create new entry in people.csv
+                        if person in self.parent.get_people():
+                            QMessageBox.warning(self, 'Person exists!',
+                                                "A person with this name already exists, please change the person's name" ,
+                                                QMessageBox.Ok)
+                            return
+
+                        self.parent.add_person(person)
+
+                    # error
+                    else:
+                        assert(False)
+
+                    return person
+                
+                def validate(fil):
+                    if os.path.exists(fil) and os.path.splitext(fil)[1] == '.txt':
+                        return fil
 
 
-                # error
-                else:
-                    assert(False)
+                # determine who typed this sample
+                person = get_person()
+                print('person', person)
 
-                print(person)
+                # audio file
+                print('audio file', self.current_file)
 
-                pass
+                input_text = validate(str(self.source_input_text.text()))
+                print('input_text', input_text)
+
+                output_text = validate(str(self.source_output_text.text()))
+                print('output_text', output_text)
+
+                actual_text = validate(str(self.source_actual_text.text()))
+                print('actual_text', actual_text)
+
+                Decoder(self.parent, audio_file = self.current_file, 
+                                    input_text = input_text, 
+                                    output_text = output_text, 
+                                    actual_text = actual_text, 
+                                    person = person).save()
+
+                # load the decoders to the list view
+                self.parent.buildTree()  
+
+                # close the popup
+                self.close()
 
             def add_new(self):
                 self.people_stack.setCurrentIndex(1)
-
 
             def update_input_text(self, val):
 
@@ -246,47 +363,11 @@ class VisualizeWidget(QWidget):
 
                 print(val)
                 
-
-
         self.w = CreateDecoder(self, current_file)
         self.w.show()
 
 
 
-        # create popup that asks for additional files to attach, metadata to pull
-
-        # create decoder object
-
-        # save to process folder
-
-        # load the decoders to the list view
-        self.load_decoders()
-
-        
-
-    def load_decoders(self):
-        '''
-            Loads any decoders from the process folder
-        '''
-        # check for decoders in process folder
-
-        # load into list view
-        pass
-
-    def load_people(self):
-        '''
-            Loads person objects into memory
-        '''
-        # find person objects in processing folder
-
-        # loads into memory and displays
-        pass
-
-    def add_person(self):
-        '''
-            Adds a new person 
-        '''
-        pass
 
 class StartingWindow(QMainWindow):
     '''
@@ -376,33 +457,11 @@ class StartingWindow(QMainWindow):
             
             # Add the elements according to config dict, None indicates separator
             [self.setupAction(action_tuple, new_menu) for action_tuple in actions]
-        
-    ################################################################
-    # View Callback
-    ################################################################
 
-    def cascade(self):
-        '''  
-         Cascade the windows in the top left corner
-        '''
-        self.centralWidget().mdi.cascadeSubWindows()
 
-    def tile(self):
-        '''
-         Tile the windows to fit the main window
-        '''
-        self.centralWidget().mdi.tileSubWindows()
+        self.buildStatusBar()
 
-    ################################################################
-    # Tools Callback
-    ################################################################
-    
-    def addWidg(self, WidgClass, **kwargs):
-        '''
-            Adds a widget of type WidgClass to the MainWindow mdi 
-        '''
-        # Calls the function within the MainWindow
-        self.centralWidget().addWidg(WidgClass, **kwargs)
+
 
     ################################################################
     # Status bar
@@ -457,16 +516,5 @@ def GET_MENU_BAR(self):
             -shortcut
             -callback function (within self)
     '''
-    return [
-            ('View', [
-                ('Cascade', {
-                    'shortcut' : 'Ctrl+Alt+C',
-                    'callback' : self.cascade,
-                }),
-                ('Tiled', {
-                    'shortcut' : 'Ctrl+Alt+T',
-                    'callback' : self.tile,
-                }),
-            ]),
-        ]
+    return [        ]
  

@@ -1,0 +1,33 @@
+ffmpeg -i audioslow.m4a -filter_complex \
+"[0:a]ahistogram,format=yuv420p[v]" \
+-map "[v]" -map 0:a output_ahistogram.mp4
+
+
+ffmpeg -i audioslow.m4a -filter_complex \
+"[0:a]showwaves=s=1280x720:mode=line:rate=25,format=yuv420p[v]" \
+-map "[v]" -map 0:a output_showwaves.mp4
+
+
+
+ffmpeg -i audioslow.m4a -filter_complex \
+"[0:a]showcqt,format=yuv420p[v]" \
+-map "[v]" -map 0:a output_showcqt.mp4
+
+
+ffmpeg -i audioslow.m4a -filter_complex \
+"[0:a]showfreqs=mode=line:fscale=log,format=yuv420p[v]" \
+-map "[v]" -map 0:a output_showfreqs.mp4
+
+ffmpeg -i audioslow.m4a -filter_complex \
+"[0:a]showspectrum=s=1280x720,format=yuv420p[v]" \
+-map "[v]" -map 0:a output_showspectrum.mp4
+
+
+
+ ffmpeg -i /Users/michaelfarrell/GoogleDrive/SPU13/keyboard_emanations/process/decoders/1/audio_file.m4a -filter_complex "[0:a]ahistogram,format=yuv420p[v]" -map "[v]" -map 0:a /Users/michaelfarrell/GoogleDrive/SPU13/keyboard_emanations/process/decoders/1/rawAudio_video_ahistogram.mp4
+
+
+
+
+
+

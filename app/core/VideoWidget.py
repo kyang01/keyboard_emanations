@@ -281,8 +281,9 @@ class Player(QWidget):
 
     fullScreenChanged = pyqtSignal(bool)
 
-    def __init__(self, playlist, parent=None):
+    def __init__(self, playlist, parent=None, add_button = None):
         super(Player, self).__init__(parent)
+        self.add_button = add_button
 
         self.colorDialog = None
         self.trackInfo = ""
@@ -352,7 +353,12 @@ class Player(QWidget):
         controlLayout = QHBoxLayout()
         controlLayout.setContentsMargins(0, 0, 0, 0)
         controlLayout.addWidget(openButton)
-        controlLayout.addStretch(1)
+        # button to add decoder
+        if add_button:
+            add_decoder_btn = QPushButton("Add New Decoder from Selected Audio")
+            add_decoder_btn.clicked.connect(add_button)            
+            controlLayout.addWidget(add_decoder_btn)
+        # controlLayout.addStretch(1)
         controlLayout.addWidget(controls)
 
         layout = QVBoxLayout()
@@ -362,6 +368,7 @@ class Player(QWidget):
         hLayout.addWidget(self.labelDuration)
         layout.addLayout(hLayout)
         layout.addLayout(controlLayout)
+
 
         self.setLayout(layout)
 

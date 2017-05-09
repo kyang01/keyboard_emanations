@@ -35,7 +35,7 @@ import scipy.io.wavfile as wav
 from scipy import signal
 
 # For displaying in notebook
-from IPython.display import display, HTML,Markdown
+# from IPython.display import display, HTML,Markdown
 
 # For detecting peaks
 import peakutils
@@ -117,7 +117,7 @@ def get_windowed_fourier(signal_df, rate, MIN_FREQ = None, MAX_FREQ = None, verb
 
 
     if verbose:
-        print 'freqs.shape', freqs.shape, 'min:', freqs.min(), 'max', freqs.max()
+        print('freqs.shape', freqs.shape, 'min:', freqs.min(), 'max', freqs.max())
 
         # Plot with peaks detected
         fourier_df['signal'].plot(figsize=figsz, title ='Transformed Windowed Signal')
@@ -154,7 +154,7 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
 
     '''
     if t0 and t1:
-        print 'time range: %.2fs - %.2fs' %(t0,t1)
+        print('time range: %.2fs - %.2fs' %(t0,t1))
 
     # number of milliseconds for a key stroke
     key_len_in_sec = key_len / 1000.
@@ -209,7 +209,7 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     peaks['start time'] = peaks['peak time'] - back_prop * key_len_in_sec
     peaks['end time'] = peaks['peak time'] + (1 - back_prop) * key_len_in_sec
 
-    print 'Number of Keys detected:', len(indexes)
+    print('Number of Keys detected:', len(indexes))
 
     # Plot the entire signal with peaks
     sfourier_df['signal'].plot(ax = ax)
@@ -440,8 +440,153 @@ def visualize_clicks(ssignal_df, input_df, peaks, all_peaks, rate, min_thresh,
     subprocess.call(['ffmpeg', '-i', outfile, '-vcodec', 'libx264', out, '-y'])
     
     plt.close(fig)
-    print 'done'
+    print('done')
     return out
+
+
+def visualize_signal(signal_df, rate, outfile, audio_df, MAX_FRAMES = 20., _FRAME_BREAK = 5., 
+                figsz = (12,8), mult = 2**9):
+    '''
+        Function to visualize clicks as an animated video created with matplotlib.animation 
+        Combines the audio, with a video of the detected peaks 
+
+            signal_df : Dataframe of raw signal during time period 
+
+            rate : The rate to save the video 
+
+            outfile : Where to save the resulting video 
+
+            MAX_FRAMES : The maximum number of frames to include per _FRAME_BREAK 
+
+            FRAME_BREAK : Only put _FRAME_BREAK seconds in each view 
+
+            figsz : Size of the figure/video
+
+            mult : Multipler for how low to put text
+
+    '''
+    global ax, last, FRAME_BREAK, mainline, ind, line, full_df
+    FRAME_BREAK = _FRAME_BREAK
+    basename = os.path.splitext(os.path.basename(outfile))[0]
+    vid_dir = os.path.dirname(outfile)
+    audio_fname = os.path.join(vid_dir, '..', 'audio', basename + '.wav')
+
+    full_df = signal_df.copy()
+    df = full_df.copy()
+
+    # Save the audio file 
+    wav.write(audio_fname, rate, audio_df['signal'].values)
+
+    # Total time of the video 
+    TOTAL_TIME = float(df.index[-1] - df.index[0])
+
+    # Maximum number of frames overal
+    MAX_FRAMES = (TOTAL_TIME * MAX_FRAMES) // FRAME_BREAK 
+
+    # Skip this many indices of the dataframe 
+    SKIPS = int(df.shape[0] // MAX_FRAMES )
+
+    # SKIPS = 1
+    print('TOTAL_TIME', TOTAL_TIME)
+    print('SKIPS', SKIPS)
+    print('MAX_FRAMES', MAX_FRAMES)
+    print('df.shape[0]', df.shape[0])
+
+    
+    # Shorten df 
+    df = df[::SKIPS].copy()
+
+    # Create figure and setup
+    fig = plt.figure(figsize = figsz)
+    mx = np.max(np.max(df) * 1.05, 0)
+    mn = np.min(np.min(df) * 1.05, 0)
+    ax = plt.axes(ylim = [mn, mx])
+
+    # Main object for singal
+    line, = ax.plot([], [], lw=2)
+
+    # Line to say where we are in time
+    mainline = ax.axvline(x = df.index[0], linewidth=2, c = 'k')
+
+    # Starting index 
+    ind = 0
+
+    # The start of the x axis 
+    last = full_df.index[0] 
+
+    # Function shifts the screen to next frame 
+    def set_x(update = False):
+        global last, full_df, FRAME_BREAK, ax, ind
+        
+        # Update limits of view
+        if update:
+            last += FRAME_BREAK
+        
+        # Set new xlimit
+        ax.set_xlim(last, last + FRAME_BREAK)
+        
+        # Get dfs in view
+        df_inds = ((full_df.index >= last) & (full_df.index <= (last + FRAME_BREAK)))
+        sub_df = full_df[df_inds]
+        
+        # Plot the signals
+        line, = ax.plot(sub_df.index.values, sub_df['signal'].values, 'b', lw=2)
+        
+        return line,
+
+    # initialization function: plot the background of each frame
+    def init():
+        global ax
+        line, = set_x()    
+        return line,
+
+   
+    #  Animate funciton for animation 
+    def animate(i):
+        global ind, line, last, mainline, FRAME_BREAK, ax
+
+        # Update the time marker
+        if mainline:
+            mainline.set_xdata(df.index[i])
+        else:
+            mainline = ax.axvline(x = df.index[i], linewidth=1, c = 'k')
+        
+        # If we are ready for a new frame, set it
+        if df.index[i] >= (last + FRAME_BREAK):
+            line, = set_x(True)
+        
+        return line,
+
+    # Calculate the number of FPS for the video
+    fps = df.shape[0] / TOTAL_TIME 
+
+    # call the animator.  blit=True means only re-draw the parts that have changed.
+    anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                   frames= df.shape[0], interval=1, blit=True)
+
+    # Write the animation to file
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=fps, metadata=dict(artist='Me'))#, bitrate=new_rate)
+    anim_loc = os.path.join(vid_dir, '%sanimation.mp4' % basename)
+    anim.save(anim_loc, writer=writer)
+    
+    # Use ffmpeg to merge audio and video
+    subprocess.call(['ffmpeg', '-i', anim_loc, '-i', audio_fname, '-c:v', 'copy', '-c:a',
+                     'aac', '-strict', 'experimental', outfile, '-y'])
+
+    # Filename for m4v file
+    out = os.path.join(vid_dir, '%s.m4v' % basename)
+
+    # Convert to m4v
+    subprocess.call(['ffmpeg', '-i', outfile, '-vcodec', 'libx264', out, '-y'])
+    
+    plt.close(fig)
+    os.remove(anim_loc)
+    print('done')
+    return out
+
+
+
 
 
 
@@ -462,7 +607,7 @@ def open_audio(raw_file, verbose = False, plt_every = 16, figsz = (12, 8)):
 
     # Make sure file exists 
     if not os.path.exists(raw_file):
-        print 'file does not exist', raw_file
+        print('file does not exist', raw_file)
         return None, None, None
 
     # Get the name
@@ -471,7 +616,7 @@ def open_audio(raw_file, verbose = False, plt_every = 16, figsz = (12, 8)):
     # Check if equivalent wav exists else make 
     wav_file = filename + '.wav'
     if not os.path.exists(wav_file):
-        print 'Converting %s to %s' % (raw_file, wav_file)
+        print('Converting %s to %s' % (raw_file, wav_file))
         subprocess.call(['ffmpeg', '-i', raw_file, wav_file])
     
     # Get the rate and raw signal
@@ -491,10 +636,10 @@ def open_audio(raw_file, verbose = False, plt_every = 16, figsz = (12, 8)):
 
     # Print out
     if verbose:
-        print '.wav file location:', wav_file
-        print 'rate:', rate, 'measurements per second'
-        print 'length of audio:', signal_df.index.max(), 'seconds'
-        print 'rate * length = ', signal_df.shape[0], 'measurements'
+        print('.wav file location:', wav_file)
+        print('rate:', rate, 'measurements per second')
+        print('length of audio:', signal_df.index.max(), 'seconds')
+        print('rate * length = ', signal_df.shape[0], 'measurements')
         signal_df['signal'][::plt_every].plot(title = 'Raw Measurements', figsize= figsz)
 
     return signal_df, rate, wav_file
