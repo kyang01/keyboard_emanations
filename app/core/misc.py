@@ -30,6 +30,7 @@ sys.path.append('Libraries')
 import signal_processing as spl 
 import prediction_lib as pl
 
+from .defense import DefenseBackgroundThread
 
 def split_directory(directory):
 	'''

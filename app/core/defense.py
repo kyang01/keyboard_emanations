@@ -7,13 +7,16 @@ from numpy import random
 import time
 
 
-class Defense(object):
+
+class DefenseBackgroundThread(QThread):
     '''
         Plays keyboard sounds to interfere with the detection algorithm.
         Start and End are the only important public API functions
     '''
-    def __init__(self):
-        super(Defense, self).__init__()
+    # end = pyqtSignal(name='end')
+    def __init__(self, parent):
+        super(DefenseBackgroundThread, self).__init__(parent)
+        self.parent = parent
         self.defending = False
         self.interfering = False
         
@@ -22,6 +25,9 @@ class Defense(object):
         space_sound = sa.WaveObject.from_wave_file("app/core/assets/SpacePress.wav")
         multi_sound = sa.WaveObject.from_wave_file("app/core/assets/FastKeys.wav")
         self.sounds = [key_sound, space_sound, multi_sound]
+
+    def run(self):
+        pass
     
     def startDefense(self):
         print("start")
