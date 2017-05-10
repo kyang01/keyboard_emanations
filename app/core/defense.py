@@ -1,6 +1,10 @@
 # Defends from this attack by playing random keyboard emanations as you type.
 # Goal is to cause enough noise in the data to throw off predictions.
 
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+
 from pynput import keyboard
 import simpleaudio as sa
 from numpy import random

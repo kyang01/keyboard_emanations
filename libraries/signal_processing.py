@@ -790,6 +790,6 @@ def build_input_df(signal_df, pks_df):
     lent= len(signal_df.ix[(signal_df.index >= starts[0]) & (signal_df.index <= ends[0]), 'signal'].values) - 1
     
     helper = lambda x : signal_df.ix[(signal_df.index >= starts[x]) & (signal_df.index <= ends[x]), 'signal'][:lent]
-    inputs = list(map(helper, range(pks_df.shape[0])))
-    CHARACTER_INPUTS = pd.concat([pks_df, pd.DataFrame(list(map(lambda x : x.reset_index(drop=True), inputs))).reset_index(drop=True)], axis = 1)
+    inputs = [helper(x) for x in range(pks_df.shape[0])]
+    CHARACTER_INPUTS = pd.concat([pks_df, pd.DataFrame([x.reset_index(drop=True) for x in inputs]).reset_index(drop=True)], axis = 1)
     return CHARACTER_INPUTS

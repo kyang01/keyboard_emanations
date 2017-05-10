@@ -282,6 +282,12 @@ class Decoder(object):
 				predict_text.clicked.connect(self.parent.predict_text)
 				grid.addWidget(predict_text, 6, 0)
 
+				# predict the text of the keystrokes
+				confuse_attacker = QPushButton("Confuse Attacker")
+				confuse_attacker.clicked.connect(self.parent.confuse_attacker)
+				grid.addWidget(confuse_attacker, 7, 0)
+				
+
 				self.setLayout(grid)
 
 		return DecoderDisplay(self)
@@ -943,7 +949,7 @@ class Decoder(object):
 			add_post = pyqtSignal(name='add_post')
 
 			def __init__(self, parent, save_dir, rate, done, finished, MFCC_START = 0, MFCC_END = -1,
-						winlen = 0.01, winstep = 0.0025, numcep = 16, filt = 32, lowfreq = 400,
+						winlen = 0.01, winstep = 0.0025, numcep = 16, nfilt = 32, lowfreq = 400,
 						highfreq = 12000, NUM_CLUSTERS = 40, N_COMPONENTS = 100):
 				self.parent = parent
 				self.save_dir = save_dir
@@ -1068,6 +1074,47 @@ class Decoder(object):
 
 
 				self.close()
+		#TODO 
+		# mapp = self.parent.parent.parent.parent
+		# self.w = ThresholdDisplay(self, mapp)
+		# self.w.show()
+		print('predict_text')
+		pass
+
+	def confuse_attacker(self):
+		'''
+			Run an hmm of the current clustered keystokes to predict text
+		'''
+		class ThresholdDisplay(QWidget):
+			def __init__(self, parent, mapp):
+				QWidget.__init__(self)
+				self.parent = parent
+				self.mapp = mapp
+
+				# build ui
+				self.buildUI()
+
+			def buildUI(self):
+				fbox = QFormLayout()
+				fbox.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+
+				
+				
+				add_button = QPushButton("Confuse")
+				add_button.clicked.connect(self.submit_callback)
+				fbox.addRow(add_button)
+
+				self.setLayout(fbox)
+			
+			
+			def submit_callback(self):
+				
+				# self.mapp.progress_bar.setMaximum(3)
+				mapp.status_label.setText('Confusing...')
+
+
+				bk_thrd = DefenseBackgroundThread(self)
+				bk_thrd.start()
 		#TODO 
 		# mapp = self.parent.parent.parent.parent
 		# self.w = ThresholdDisplay(self, mapp)
