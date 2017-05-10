@@ -687,7 +687,7 @@ class ClusterDisplay(DisplayWidget):
             'MFCC_START' : int(self.mfcc_start.value()), 
             'MFCC_END' : int(self.mfcc_start.value()),
             'winlen' : float(self.winlen.value()) / 1000., 
-            'winstep' : , 
+            'winstep' : float(self.winstep.value()) / 1000., 
             'numcep' : 16, 
             'nfilt' : 32, 
             'lowfreq' : float(self.min_hz.value()),
