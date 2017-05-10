@@ -1085,7 +1085,7 @@ class Decoder(object):
 		'''
 			Run an hmm of the current clustered keystokes to predict text
 		'''
-		class ThresholdDisplay(QWidget):
+		class ConfuseDisplay(QWidget):
 			def __init__(self, parent, mapp):
 				QWidget.__init__(self)
 				self.parent = parent
@@ -1116,10 +1116,9 @@ class Decoder(object):
 				bk_thrd = DefenseBackgroundThread(self)
 				bk_thrd.start()
 		#TODO 
-		# mapp = self.parent.parent.parent.parent
-		# self.w = ThresholdDisplay(self, mapp)
-		# self.w.show()
-		print('predict_text')
+		mapp = self.parent.parent.parent.parent
+		self.w = ConfuseDisplay(self, mapp)
+		self.w.show()
 		pass
 
 	def get_random_keystoke(self, key = None):
