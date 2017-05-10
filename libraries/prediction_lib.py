@@ -38,7 +38,7 @@ from python_speech_features import mfcc
 
 
 def extract_cepstrum(df, rate, mfcc_start=0, mfcc_end=-1, winlen = 0.025, winstep = 0.01,
-                    numcep = 16, nfilt = 32,nfft=512, lowfreq = 400, highfreq = 12000, noise = None):
+                    numcep = 16, nfilt = 32, nfft=512, lowfreq = 400, highfreq = 12000, noise = None):
     '''
         Extracts the cepstrum features from the raw signal data 
 

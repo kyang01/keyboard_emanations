@@ -2,6 +2,7 @@
 - [StartingWidgets] create_decoder -> general clip video 
 - [signal_processinglib] fix determine_offset of audio to label
 - check out where resaving is occuring
+- make sure choosing None works properly
 
 - threshold_keystrokes-> FIX CURRENTLY BROKEN, checkbox to create video from preprocessing notebook, better integration of known info, characters to plot
 - cluster_keystrokes -> add ui buttons, additional display when labels exist (and dont exist)

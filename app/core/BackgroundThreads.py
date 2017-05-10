@@ -163,12 +163,13 @@ class ClusterBackgroundThread(BackgroundThread):
 		char_inps = pd.read_csv(INPUT_FILE, index_col=0)
 		self.add_post.emit()
 
-		cepstrum_df = pl.extract_cepstrum(char_inps, self.rate, 
+		cepstrum_df = pl.extract_cepstrum(char_inps, self.inputs['rate'], 
 									mfcc_start=self.inputs['MFCC_START'], 
 									mfcc_end=self.inputs['MFCC_END'],
 									winlen = self.inputs['winlen'], 
 									winstep = self.inputs['winstep'],
             					numcep = self.inputs['numcep'], 
+            					nfft= self.inputs['nfft'],
             					nfilt = self.inputs['nfilt'], 
             					lowfreq = self.inputs['lowfreq'], 
             					highfreq = self.inputs['highfreq'])

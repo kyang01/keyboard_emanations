@@ -535,7 +535,7 @@ class ThresholdDisplay(DisplayWidget):
         self.max_thresh_inp = QDoubleSpinBox(self)
         self.max_thresh_inp.setMinimum(self.mn_sig)
         self.max_thresh_inp.setMaximum(self.mx_sig)
-        self.max_thresh_inp.setValue(self.mn_val)
+        self.max_thresh_inp.setValue(self.mx_val)
         self.max_thresh_inp.setSingleStep(self.step)
         fbox.addRow(QLabel('Maximum Threshold / 10 (on fourier) to be \nconsidered a keystroke:'), self.max_thresh_inp)
 
@@ -585,6 +585,7 @@ class ThresholdDisplay(DisplayWidget):
             'output_text' : os.path.join(self.parent.decode_folder, 'output_text.txt'),
             'save_dir' : self.parent.threshold_directory, 
         }
+        print(inputs)
 
         bk_thrd = ThresholdBackgroundThread(parent = self.parent.parent.parent,
                                     done = self.parent.add_p, 
@@ -595,12 +596,78 @@ class ThresholdDisplay(DisplayWidget):
 
 class ClusterDisplay(DisplayWidget):
     def __init__(self, parent, mapp, item, BackgroundThread = ClusterBackgroundThread, name = 'Clustering Keystrokes'):
+        self.nfft = 512
+        self.start_hz, self.end_hz, self.skip_hz, self.val_min_hz, self.val_max_hz = 20, 20000, 20, 400, 12000
+        self.mn_clust, self.mx_clust, self.vl_clust = 2, 200, 40
+        self.mn_winlen, self.mx_winlen, self.vl_winlen = 1, 3000, 25
+        self.mn_winstep, self.mx_winstep, self.vl_winstep = 1, 3000, 10
+        self.mn_comp, self.mx_comp, self.vl_comp = 0, self.nfft, 100
         DisplayWidget.__init__(self, parent, mapp, item, BackgroundThread, name)
-    
+        
+
     def build(self, fbox):
         '''
             builds the form
         '''
+        # mfcc start
+        self.mfcc_start = QSpinBox(self)
+        self.mfcc_start.setMinimum(0)
+        self.mfcc_start.setMaximum(self.nfft - 1)
+        self.mfcc_start.setValue(0)
+        fbox.addRow(QLabel('Starting Index of MFCC Features to use:'), self.mfcc_start)
+
+        # mfcc end
+        self.mfcc_end = QSpinBox(self)
+        self.mfcc_end.setMinimum(0)
+        self.mfcc_end.setMaximum(self.nfft - 1)
+        self.mfcc_end.setValue(self.nfft - 1)
+        fbox.addRow(QLabel('Ending Index of MFCC Features to use:'), self.mfcc_end)
+
+        # minimum hertz
+        self.min_hz = QDoubleSpinBox()
+        self.min_hz.setMinimum(self.start_hz)
+        self.min_hz.setMaximum(self.end_hz)
+        self.min_hz.setSingleStep(self.skip_hz)
+        self.min_hz.setValue(self.val_min_hz)
+        fbox.addRow(QLabel("Minimum Hz to keep:"), self.min_hz)
+
+        # maximum hertz
+        self.max_hz = QDoubleSpinBox()
+        self.max_hz.setMinimum(self.start_hz)
+        self.max_hz.setMaximum(self.end_hz)
+        self.max_hz.setSingleStep(self.skip_hz)
+        self.max_hz.setValue(self.val_max_hz)
+        fbox.addRow(QLabel("Maximum Hz to keep:"), self.max_hz)
+
+        # number of clustsers for kmeans
+        self.num_clusters = QSpinBox(self)
+        self.num_clusters.setMinimum(self.mn_clust)
+        self.num_clusters.setMaximum(self.mx_clust)
+        self.num_clusters.setValue(self.vl_clust)
+        fbox.addRow(QLabel("Number of groups to cluster keystrokes:"), self.num_clusters)
+
+        # number of components for pca
+        self.N_COMPONENTS = QSpinBox(self)
+        self.N_COMPONENTS.setMinimum(self.mn_comp)
+        self.N_COMPONENTS.setMaximum(self.mx_comp)
+        self.N_COMPONENTS.setValue(self.vl_comp)
+        fbox.addRow(QLabel("Number of groups to cluster keystrokes:"), self.N_COMPONENTS)
+
+        # number of components for pca
+        self.winlen = QSpinBox(self)
+        self.winlen.setMinimum(self.mn_winlen)
+        self.winlen.setMaximum(self.mx_winlen)
+        self.winlen.setValue(self.vl_winlen)
+        fbox.addRow(QLabel("the length of the analysis window in milliseconds:"), self.winlen)
+
+        # number of components for pca
+        self.winstep = QSpinBox(self)
+        self.winstep.setMinimum(self.mn_winstep)
+        self.winstep.setMaximum(self.mx_winstep)
+        self.winstep.setValue(self.vl_winstep)
+        fbox.addRow(QLabel("the step between successive windows in milliseconds."), self.winstep)
+
+        
         
         add_button = QPushButton("Cluster Keystrokes")
         add_button.clicked.connect(self.submit_callback)
@@ -613,19 +680,21 @@ class ClusterDisplay(DisplayWidget):
         
         self.mapp.progress_bar.setMaximum(5)
 
+        n_comp = int(self.N_COMPONENTS.value())
         inputs = {
             'save_dir' : self.parent.threshold_directory, 
             'rate' : self.parent.metadata['raw_rate'],
-            'MFCC_START' : 0, 
-            'MFCC_END' : -1,
-            'winlen' : 0.01, 
-            'winstep' : 0.0025, 
+            'MFCC_START' : int(self.mfcc_start.value()), 
+            'MFCC_END' : int(self.mfcc_start.value()),
+            'winlen' : float(self.winlen.value()) / 1000., 
+            'winstep' : , 
             'numcep' : 16, 
             'nfilt' : 32, 
-            'lowfreq' : 400,
-            'highfreq' : 12000,
-            'NUM_CLUSTERS' : 40,
-            'N_COMPONENTS' : 100
+            'lowfreq' : float(self.min_hz.value()),
+            'highfreq' : float(self.max_hz.value()),
+            'NUM_CLUSTERS' : int(self.num_clusters.value()),
+            'N_COMPONENTS' : n_comp if n_comp != 0 else None,
+            'nfft' : self.nfft
         }
 
         return inputs

@@ -12,7 +12,11 @@ fi
 if command -v virtualenv > /dev/null 2>&1; then
     echo virtualenv exists
 else
+  if command -v pip3 > /dev/null 2>&1; then
     pip3 install virtualenv
+  else
+    pip install virtualenv
+  fi
 fi
 
 
