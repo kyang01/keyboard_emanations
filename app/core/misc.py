@@ -165,6 +165,7 @@ class TreeWidget(QTreeWidgetItem):
 		# values of branch
 		self.values = values
 
+
 class DecoderTreeWidget(QTreeWidgetItem):
 	def __init__(self, parent, values, decoder):
 		super(self.__class__, self).__init__(parent, values)
@@ -178,7 +179,7 @@ class DecoderTreeWidget(QTreeWidgetItem):
 		self.decoder = decoder
 
 class AudioTreeWidget(QTreeWidgetItem):
-	def __init__(self, parent, values, audio_files, video_files):
+	def __init__(self, parent, values, audio_files, video_files, decoder):
 		super(self.__class__, self).__init__(parent, values)
 		# parent branch
 		self.parent = parent
@@ -189,5 +190,7 @@ class AudioTreeWidget(QTreeWidgetItem):
 		# decoder for widget
 		self.audio_files = audio_files
 		self.video_files = video_files
+
+		self.decoder = decoder
 
 

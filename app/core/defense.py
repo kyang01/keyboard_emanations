@@ -10,17 +10,29 @@ import simpleaudio as sa
 from numpy import random
 import time
 
+class BackgroundThread(QThread):
+    '''
+        Generic background thread
+    '''
+    add_post = pyqtSignal(name='add_post')
+
+    def __init__(self, parent, done, finished, inputs):
+        super(BackgroundThread, self).__init__(parent)
+        self.parent = parent
+        self.inputs = inputs
+
+        # Set up connection to send signal that updates progress bar
+        self.add_post.connect(done)
+        self.finished.connect(finished)
 
 
-class DefenseBackgroundThread(QThread):
+class DefenseBackgroundThread(BackgroundThread):
     '''
         Plays keyboard sounds to interfere with the detection algorithm.
         Start and End are the only important public API functions
     '''
-    # end = pyqtSignal(name='end')
-    def __init__(self, parent):
-        super(DefenseBackgroundThread, self).__init__(parent)
-        self.parent = parent
+    def __init__(self, parent, done, finished, inputs):
+        super(DefenseBackgroundThread, self).__init__(parent, done, finished, inputs)
         self.defending = False
         self.interfering = False
         

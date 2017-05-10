@@ -40,7 +40,9 @@ class VisualizeWidget(QWidget):
     def __init__(self, parent = None, name = "Visualize Directory"):
         super(self.__class__, self).__init__(parent)
         # MainWindow
+        self.Decoder = Decoder
         self.parent = parent 
+        self.mapp = self.parent.parent
         self.processed = self.parent.parent.processed
         self.people_csv = os.path.join(self.processed, 'people.csv')
         self.tree = None
@@ -143,13 +145,18 @@ class VisualizeWidget(QWidget):
         item = self.tree.currentItem()
 
         # Display Decoder information
-        if type(item) == DecoderTreeWidget:
+        if type(item) == DecoderTreeWidget :
             new_widget = item.decoder.update_display(self.process_area)
             self.process_stack.insertWidget(1, new_widget)
             self.process_stack.setCurrentIndex(1)
+
         elif type(item) == TreeWidget:
             self.process_stack.setCurrentIndex(0)
         elif type(item) == AudioTreeWidget:
+            new_widget = item.decoder.update_display(self.process_area)
+            self.process_stack.insertWidget(1, new_widget)
+            self.process_stack.setCurrentIndex(1)
+
             self.media_player.playlist.clear()
             self.media_player.addToPlaylist(item.audio_files + item.video_files)
         elif self.process_stack:
@@ -225,150 +232,25 @@ class VisualizeWidget(QWidget):
                                             "Valid audio file extensions:\n%s" % ' '.join(config.AUDIO_EXTS),
                                             QMessageBox.Ok)
             return
+
         
-        class CreateDecoder(QWidget):
-            def __init__(self, parent, current_file):
-                QWidget.__init__(self)
-                self.parent = parent
-                self.current_file = current_file
-                self.dir = os.path.dirname(self.current_file)
-                self.buildUI()
-
-            def buildUI(self):
-                # create the form
-                fbox = QFormLayout()
-                fbox.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-
-                # be able to match recording to a person
-                self.people_stack = QStackedWidget()
-
-                self.people_selected = QComboBox()
-                self.people_selected.addItems(self.parent.get_people())
-
-                #create new entry in people.csv
-                self.people_stack.addWidget(self.people_selected)
-
-                self.people_input = QLineEdit()
-                self.people_stack.addWidget(self.people_input)
-                fbox.addRow(QLabel('Person:'), self.people_stack)
-
-                # Button to add new person
-                self.new_person_button = QPushButton('New Person')
-                self.new_person_button.clicked.connect(self.add_new)
-                fbox.addRow(QLabel(''), self.new_person_button)
-
-                # Choose input text
-                sourceFileDialog, self.source_input_text = createFileDialog(additionalExec = self.update_input_text)
-                input_text_fname = os.path.join(self.dir, 'input_text.txt')
-                if os.path.exists(input_text_fname):
-                    self.source_input_text.setText(input_text_fname)
-                fbox.addRow(QLabel("Input Text:"), sourceFileDialog)
-
-                # Choose output text
-                sourceFileDialog, self.source_output_text = createFileDialog(additionalExec = self.update_output_text)
-                output_text_fname = os.path.join(self.dir, 'output_text.txt')
-                if os.path.exists(output_text_fname):
-                    self.source_output_text.setText(output_text_fname)
-                fbox.addRow(QLabel("Output Text:"), sourceFileDialog)
-
-                # Choose output text
-                sourceFileDialog, self.source_actual_text = createFileDialog(additionalExec = self.update_actual_text)
-                actual_text_fname = os.path.join(self.dir, 'actual_text.txt')
-                if os.path.exists(actual_text_fname):
-                    self.source_actual_text.setText(actual_text_fname)
-                fbox.addRow(QLabel("Actual Text:"), sourceFileDialog)
-
-                # Show if the file has metadata it can extract
-                self.metadata = Decoder.extract_metadata(self.current_file)
-                metadata_str = textwrap.fill(json.dumps(self.metadata), 50)
-                fbox.addRow(QLabel("Metadata:"), QLabel(metadata_str))
-
-                # submit button
-                create_decoder = QPushButton('Create Decoder')
-                create_decoder.clicked.connect(self.add_decoder)
-                fbox.addRow(create_decoder)
-
-                # set the layout
-                self.setLayout(fbox)
-
-            def add_decoder(self):
-
-                def get_person():
-                    # determine if we are creating a new person
-                    person_ind = self.people_stack.currentIndex()
-
-                    # old person
-                    if person_ind == 0:
-                        person = str(self.people_selected.currentText())
-
-                    # new person
-                    elif person_ind == 1:
-                        person = str(self.people_input.text())
-
-                        if person in self.parent.get_people():
-                            QMessageBox.warning(self, 'Person exists!',
-                                                "A person with this name already exists, please change the person's name" ,
-                                                QMessageBox.Ok)
-                            return
-
-                        self.parent.add_person(person)
-
-                    # error
-                    else:
-                        assert(False)
-
-                    return person
-                
-                def validate(fil):
-                    if os.path.exists(fil) and os.path.splitext(fil)[1] == '.txt':
-                        return fil
 
 
-                # determine who typed this sample
-                person = get_person()
-                print('person', person)
-
-                # audio file
-                print('audio file', self.current_file)
-
-                input_text = validate(str(self.source_input_text.text()))
-                print('input_text', input_text)
-
-                output_text = validate(str(self.source_output_text.text()))
-                print('output_text', output_text)
-
-                actual_text = validate(str(self.source_actual_text.text()))
-                print('actual_text', actual_text)
-
-                Decoder(self.parent, audio_file = self.current_file, 
-                                    input_text = input_text, 
-                                    output_text = output_text, 
-                                    actual_text = actual_text, 
-                                    person = person).save()
-
-                # load the decoders to the list view
-                self.parent.buildTree()  
-
-                # close the popup
-                self.close()
-
-            def add_new(self):
-                self.people_stack.setCurrentIndex(1)
-
-            def update_input_text(self, val):
-
-                print(val)
-                
-            def update_output_text(self, val):
-
-                print(val)
-                
-            def update_actual_text(self, val):
-
-                print(val)
-                
-        self.w = CreateDecoder(self, current_file)
+        self.w = CreateDecoderDisplay(self, self.mapp, self.tree.currentItem())
         self.w.show()
+
+    def add_p(self):
+        '''
+            Updates the progress bar by 1
+        '''
+        self.mapp.progress_bar.setValue(self.mapp.progress_bar.value() + 1)
+
+    def finished(self, display_text_main = 'Finished creating decoder!', display_text_small = 'Finished creating decoder!'):
+        QMessageBox.information(self.mapp, display_text_main,
+                                        display_text_small ,
+                                        QMessageBox.Ok)
+        self.buildTree()
+        self.mapp.resetLabel()
 
 
 

@@ -321,10 +321,7 @@ class Player(QWidget):
         self.labelDuration = QLabel()
         self.slider.sliderMoved.connect(self.seek)
 
-    
-
-
-        openButton = QPushButton("Open Audio/Visual", clicked=self.open)
+        openButton = QPushButton("Open Audio/Video File", clicked=self.open)
 
         controls = PlayerControls()
         controls.setState(self.player.state())
@@ -355,7 +352,7 @@ class Player(QWidget):
         controlLayout.addWidget(openButton)
         # button to add decoder
         if add_button:
-            add_decoder_btn = QPushButton("Add New Decoder from Selected Audio")
+            add_decoder_btn = QPushButton("Decode Keystrokes of Selected Media")
             add_decoder_btn.clicked.connect(add_button)            
             controlLayout.addWidget(add_decoder_btn)
         # controlLayout.addStretch(1)

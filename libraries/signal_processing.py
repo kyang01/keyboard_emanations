@@ -281,7 +281,8 @@ def detect_peaks(fourier_df, signal_df, true_df = None, t0 = None, t1 = None, mi
 
     # Plot the entire signal with peaks
     sfourier_df['signal'].plot(ax = ax)
-    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax, title = 'all')
+    if len(indexes) > 0:
+        sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax, title = 'all')
     ax.axhline(y = min_thresh, linewidth=1, c = 'r')
 
     if true_df is not None:
@@ -306,7 +307,8 @@ def detect_peaks(fourier_df, signal_df, true_df = None, t0 = None, t1 = None, mi
     
     # Plot the entire signal zoomed in  on the threshold
     sfourier_df['signal'].plot(ax = ax2)
-    sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax2, title = 'zoomed')
+    if len(indexes) > 0:
+        sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax2, title = 'zoomed')
     ax2.axhline(y = min_thresh, linewidth=1, c = 'r')
 
     # Change the threshold 
@@ -340,7 +342,8 @@ def detect_peaks(fourier_df, signal_df, true_df = None, t0 = None, t1 = None, mi
     
     # Plot first 10 seconds of clip
     fourier_df['signal'].plot(ax = ax3)
-    fourier_df['signal'].iloc[indexes].plot(style='*', ax=ax3, title = 'zoomed beginning')
+    if len(indexes) > 0:
+        fourier_df['signal'].iloc[indexes].plot(style='*', ax=ax3, title = 'zoomed beginning')
     ax3.axhline(y = min_thresh, linewidth=1, c = 'r')
     ax3.set_ylim((0, mx))
 
@@ -359,7 +362,6 @@ def detect_peaks(fourier_df, signal_df, true_df = None, t0 = None, t1 = None, mi
 
 
     if signal:
-        print('second to last emit')
         signal.emit()
 
     if save_dir:
@@ -787,8 +789,10 @@ def clean_output_text(output_text):
 def build_input_df(signal_df, pks_df):
     starts=  pks_df['start time'].to_dict()
     ends = pks_df['end time'].to_dict()
-    lent= len(signal_df.ix[(signal_df.index >= starts[0]) & (signal_df.index <= ends[0]), 'signal'].values) - 1
-    
+    if signal_df.shape[0] > 0 and len(pks_df) > 0:
+        lent= len(signal_df.ix[(signal_df.index >= starts[0]) & (signal_df.index <= ends[0]), 'signal'].values) - 1
+    else:
+        lent = 0
     helper = lambda x : signal_df.ix[(signal_df.index >= starts[x]) & (signal_df.index <= ends[x]), 'signal'][:lent]
     inputs = [helper(x) for x in range(pks_df.shape[0])]
     CHARACTER_INPUTS = pd.concat([pks_df, pd.DataFrame([x.reset_index(drop=True) for x in inputs]).reset_index(drop=True)], axis = 1)
