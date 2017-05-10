@@ -3,7 +3,7 @@
     and is the main window of the application
 '''
 
-from .misc import *
+from .decoder import *
 from .VideoWidget import *
 
 class MainWindow(QWidget):

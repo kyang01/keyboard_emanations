@@ -37,8 +37,8 @@ from hmmlearn.hmm import MultinomialHMM
 from python_speech_features import mfcc
 
 
-def extract_cepstrum(df, rate, mfcc_start=0, mfcc_end=-1, winlen = 0.01, winstep = 0.0025,
-                    numcep = 16, nfilt = 32, lowfreq = 400, highfreq = 12000, noise = None):
+def extract_cepstrum(df, rate, mfcc_start=0, mfcc_end=-1, winlen = 0.025, winstep = 0.01,
+                    numcep = 16, nfilt = 32,nfft=512, lowfreq = 400, highfreq = 12000, noise = None):
     '''
         Extracts the cepstrum features from the raw signal data 
 
@@ -52,26 +52,28 @@ def extract_cepstrum(df, rate, mfcc_start=0, mfcc_end=-1, winlen = 0.01, winstep
 
             remainder of args are passed into the mfcc punction 
     '''
-
+    rate = float(rate)
     # Convert raw signal into list of numpy arrays 
     char_data = df[df.columns[list(df.columns).index('0'):]].values
     if noise:
         char_data += np.random.normal(0, noise, char_data.shape) 
-    keypress_sigs = [np.squeeze(l) for l in np.split(char_data, char_data.shape[0], axis=0)]
+    keypress_sigs = [np.nan_to_num(np.squeeze(l)) for l in np.split(char_data, char_data.shape[0], axis=0)]
     
     # Create the keypress features one by one
     keypress_feats = []
     for keypress_sig in keypress_sigs:
-        mfcc_feat = mfcc(keypress_sig, rate, winlen=winlen, 
+
+        mfcc_feat = mfcc(keypress_sig, samplerate= rate, winlen=winlen, 
                          winstep=winstep, numcep=numcep, nfilt=nfilt, 
-                         lowfreq=lowfreq, highfreq=highfreq)
+                         lowfreq=lowfreq, nfft = nfft, highfreq=highfreq)
         keypress_feats.append(np.concatenate(mfcc_feat[mfcc_start:mfcc_end, :]).T)
 
     # Create cepstrum dataframe
     cepstrum_df = pd.DataFrame(np.vstack(keypress_feats))
 
     # Copy over true char labels
-    cepstrum_df['char'] = df['char']
+    if 'char' in cepstrum_df:
+        cepstrum_df['char'] = df['char']
 
     # Put the char labels at the front
     cepstrum_df = cepstrum_df.reindex(columns = [cepstrum_df.columns[-1]] + list(cepstrum_df.columns[:-1]))
