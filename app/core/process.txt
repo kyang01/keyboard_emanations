@@ -1,0 +1,53 @@
+
+
+Build Transmission Matrix with bigrams¶
+A_df, n_unique, unique_chars, id_to_char, char_to_id  = pl.build_transmission_full()
+A_df.head()
+
+
+Build emissions matrix
+In [48]:
+Eta = pl.build_eta(cepstrum_df, unique_chars, NUM_CLUSTERS[0], do_all = DO_ALL)
+Eta
+
+
+Get Unigram proportions
+In [61]:
+char_counts = pl.get_char_counts(targ_s, unique_chars)
+char_counts
+
+smooth = 2.5
+estimate, acc, acc_wospace, score, hmm = pl.run_hmm(cepstrum_df, targ_s, 
+                                                    NUM_CLUSTERS[0], t_smooth = smooth, tol = TOL,
+                                                    do_all = DO_ALL, verbose = False)  
+
+params,_id = build_params(smooth, MFCC_START[0], MFCC_END[0], NUM_CLUSTERS[0], N_COMPONENTS[0])
+
+params['OVERALL_ACCURACY'] = acc
+params['ACCURACY_WO_SPACES'] = acc_wospace
+params['PREDICTION'] = estimate
+params['SCORE'] = score
+params['MODEL'] = hmm
+
+if acc > SAVE_THRESH:
+    save(hmm, acc, _id)
+else:
+    save()
+
+
+
+
+
+
+Check the PCA variance
+In [38]:
+inds = cepstrum_df.dtypes == np.float64
+data = cepstrum_df.ix[:,inds].values
+# Standardize data
+if WHITEN:
+    data = whiten(data)
+        
+pca = PCA(n_components=N_COMPONENTS[0])
+pca.fit(data)
+data = pca.transform(data)
+pca.explained_variance_ratio_.sum()

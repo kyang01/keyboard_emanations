@@ -44,6 +44,7 @@ class VisualizeWidget(QWidget):
         self.processed = self.parent.parent.processed
         self.people_csv = os.path.join(self.processed, 'people.csv')
         self.tree = None
+        self.process_stack = None
 
         if not os.path.exists(self.people_csv):
             df = pd.DataFrame(columns = config.PEOPLE_COLUMNS)
@@ -151,6 +152,8 @@ class VisualizeWidget(QWidget):
         elif type(item) == AudioTreeWidget:
             self.media_player.playlist.clear()
             self.media_player.addToPlaylist(item.audio_files + item.video_files)
+        elif self.process_stack:
+            self.process_stack.setCurrentIndex(0)
 
     def buildTree(self):
         '''
@@ -165,6 +168,7 @@ class VisualizeWidget(QWidget):
         else:
             self.tree.clear()
             self.tree.reset()
+        self.tree_change()
         
         # Set the headers
         self.tree.setHeaderItem(QTreeWidgetItem(["People"]))

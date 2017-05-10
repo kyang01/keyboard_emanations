@@ -15,6 +15,24 @@ else
     pip3 install virtualenv
 fi
 
+
+# Ensure brew exists
+if command -v brew > /dev/null 2>&1; then
+    echo brew exists
+else
+    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+fi
+
+
+
+# Ensure ffmpeg exists
+if command -v ffmpeg > /dev/null 2>&1; then
+    echo ffmpeg exists
+else
+    brew install ffmpeg --with-fdk-aac --with-ffplay --with-freetype --with-frei0r --with-libass --with-libvo-aacenc --with-libvorbis --with-libvpx --with-opencore-amr --with-openjpeg --with-opus --with-rtmpdump --with-schroedinger --with-speex --with-theora --with-tools
+fi
+
+
 # check if virtual environment has been created before
 if [ ! -d "venv" ]; then
   virtualenv -p python3 venv

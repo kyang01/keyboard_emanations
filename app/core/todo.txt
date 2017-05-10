@@ -1,0 +1,58 @@
+Build peaks dataframe of the true peaks
+
+key_len_in_sec = KEY_LEN / 1000.
+true_peaks['start time'] = true_peaks['peak time'] - BACK_PROP * key_len_in_sec
+true_peaks['end time'] = true_peaks['peak time'] + (1 - BACK_PROP) * key_len_in_sec
+true_peaks['signal'] = true_peaks['peak time'].map(lambda t: sfourier_df.ix[sfourier_df.iloc[np.abs(sfourier_df.index-t).argsort()[0]].name]['signal'])
+
+
+
+Map chars to the predicted peaks dataframe
+if all_peaks.shape[0] > len(list(text)):
+    all_peaks['char'] = ''
+    all_peaks['char'].iloc[:len(list(text))] = list(text)
+else:
+    all_peaks['char'] = list(text[:all_peaks.shape[0]])
+all_peaks.tail()
+
+
+
+Determine Windows in subset of audio
+
+sfourier_df, ssignal_df, peaks = spl.detect_peaks(fourier_df, signal_df, t0 = MINT, t1 = MAXT , 
+                                                 min_thresh = MIN_THRESH, max_thresh = MAX_THRESH, 
+                                                  min_dist = MIN_DIST, key_len = KEY_LEN, back_prop = BACK_PROP, 
+                                                  figsz = FIGSZ, to_add = TO_ADD)
+
+
+
+Build Videos of Clicks¶
+
+
+# Determine length of a frame in the video
+_FRAME_BREAK = 20.
+
+# Resolution of the video
+MAX_FRAMES = _FRAME_BREAK * 3
+
+# Slowdown multiplier
+SLOWDOWN = 1.
+
+
+spl = reload(spl)
+outfile = spl.visualize_clicks(ssignal_df, sfourier_df, peaks, all_peaks, rate, 
+                              min_thresh  = MIN_THRESH, 
+                               outfile = name + '_fourier_clicks.mp4', 
+                               MAX_FRAMES =MAX_FRAMES , _FRAME_BREAK = _FRAME_BREAK, 
+                               SLOWDOWN = SLOWDOWN, figsz = (12,8))
+outfile
+spl.display_animation_from_file(outfile)
+
+
+spl = reload(spl)
+outfile = spl.visualize_clicks(ssignal_df, ssignal_df, peaks,all_peaks, rate,  
+                               min_thresh  = MIN_THRESH, outfile = name + '_signal_clicks.mp4', 
+                               MAX_FRAMES = MAX_FRAMES, _FRAME_BREAK = _FRAME_BREAK, 
+                               SLOWDOWN = SLOWDOWN, figsz = (12,8))
+outfile
+spl.display_animation_from_file(outfile)

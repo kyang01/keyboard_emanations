@@ -20,6 +20,7 @@
 # Core
 import sys, os, time, datetime, subprocess
 from base64 import b64encode
+import pickle
 
 # Numpy and pandas
 import numpy as np
@@ -124,10 +125,60 @@ def get_windowed_fourier(signal_df, rate, MIN_FREQ = None, MAX_FREQ = None, verb
 
     return freqs, fourier_df
 
+def determine_difference(true_df, peaks_df):
+    '''
+        Get the difference in time sync between true_df and peaks_df
+    '''
 
-def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900, 
+    true_peaks = true_df['peak time'].copy()
+    detected_peaks = peaks_df['peak time'].copy()
+
+    min_tru, min_det = true_peaks.min(), detected_peaks.min()
+    max_tru, max_det = true_peaks.min(), detected_peaks.min()
+    
+
+
+    # true_peaks.iloc[0] + shift = detected_peaks.iloc[?]
+    
+
+    merge_scores = []
+    diffs = []
+    for i in range(np.min([4, len(detected_peaks)])):
+        diff = detected_peaks.iloc[i] - true_peaks.iloc[0]
+        print('detected_peaks.iloc[i]: %.2f, i: %d, true_peaks.iloc[0]: %.2f' % (detected_peaks.iloc[i], i, true_peaks.iloc[0]))
+        merge_score = check_merge(true_df, peaks_df, diff)
+        print('Diff: %.2f, merge_score: %.2f' % (diff, merge_score))
+        merge_scores.append(merge_score)
+        diffs.append(diff)
+#         plt.plot(merge_scores)
+    
+    return diffs[np.argmin(merge_scores)] 
+
+
+def check_merge(true_df, peaks_df, diff):
+    true_df = true_df.copy()
+    peaks_df = peaks_df.copy()
+
+    true_df['peak time'] = true_df['peak time'] + diff
+    true_df = true_df[true_df['peak time'] < peaks_df['peak time'].max()]
+    true_df = true_df[true_df['peak time'] < (peaks_df['peak time'].min() + 60)]
+    
+    close_inds = []
+    diff_vals = []
+    for ix, row in true_df.iterrows():
+        diffs = np.abs(peaks_df['peak time'] - row['peak time'])
+        closest, mv = diffs.argmin(), diffs.min()
+        diff_vals.append(mv)
+        close_inds.append(closest)
+    
+    # print(len(close_inds) - len(set(close_inds)), np.median(diff_vals), np.mean(diff_vals))
+    return np.median(diff_vals)
+
+
+
+def detect_peaks(fourier_df, signal_df, true_df = None, t0 = None, t1 = None, min_thresh = 1900, 
                 max_thresh = 500000, min_dist = 13, key_len = 60, back_prop = .3, 
-                figsz = (10,10), to_add = None):
+                figsz = (18,10), to_add = None, signal = None, save_dir = None):
     '''
         Detect Peaks in the fourier_df 
 
@@ -171,11 +222,16 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
         sfourier_df = sfourier_df[sfourier_df.index <= t1]
         ssignal_df = ssignal_df[ssignal_df.index <= t1]
 
+    if signal:
+        signal.emit()
+
     
     # Finds the index of the closest value in an array
     def find_nearest(array,value):
         idx = (np.abs(array-value)).argmin()
         return idx
+
+    
       
     # Plot with peaks detected
     fig = plt.figure(figsize = figsz)
@@ -190,6 +246,9 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     indexes = peakutils.indexes(sig, min_dist = min_dist, thres=min_thresh / float(sig.max()))
     indexes = indexes[(sig[indexes] <= max_thresh)]
 
+    if signal:
+        signal.emit()
+
     # Add on additional indices if specified 
     if to_add and len(to_add) > 0:
         vals = sfourier_df.index.values
@@ -198,6 +257,9 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     # Add on column to indicate if time point is a peak
     sfourier_df['is_peak'] = False
     sfourier_df.ix[sfourier_df.index[indexes], 'is_peak'] = True
+
+    if signal:
+        signal.emit()
 
 
     # Create dataframe of peaks
@@ -210,11 +272,37 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     peaks['end time'] = peaks['peak time'] + (1 - back_prop) * key_len_in_sec
 
     print('Number of Keys detected:', len(indexes))
+    if signal:
+        signal.emit()
+
+    if true_df is not None:
+        diff = determine_difference(true_df, peaks)
+        fourier_df_ma = pd.rolling_max(fourier_df['signal'], 20, center = True, min_periods = 1)
 
     # Plot the entire signal with peaks
     sfourier_df['signal'].plot(ax = ax)
     sfourier_df['signal'].iloc[indexes].plot(style='*', ax=ax, title = 'all')
     ax.axhline(y = min_thresh, linewidth=1, c = 'r')
+
+    if true_df is not None:
+    
+        true_peaks = true_df['peak time'] + diff
+        if t0:
+            true_peaks = true_peaks[true_peaks >= t0]
+        if t1:
+            true_peaks = true_peaks[true_peaks <= t1]
+
+        vals = fourier_df.index.values
+        inds = np.array([find_nearest(vals, item) for item in true_peaks.values])
+
+        plt_vals = fourier_df_ma.ix[vals[inds]]
+        ax.scatter(true_peaks.values, plt_vals, marker='*', c = 'r', zorder=100)
+        ax2.scatter(true_peaks.values, plt_vals, marker='*', c = 'r', zorder=100)
+
+
+    
+
+
     
     # Plot the entire signal zoomed in  on the threshold
     sfourier_df['signal'].plot(ax = ax2)
@@ -224,6 +312,9 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     # Change the threshold 
     mx = np.max([min_thresh * 1.1, sfourier_df['signal'].max() * .15])
     ax2.set_ylim((0, mx))
+
+    if signal:
+        signal.emit()
 
     # Plot a shortened time period
     if not t0:
@@ -237,6 +328,9 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
         fourier_df = fourier_df[fourier_df.index <= t1]
         signal_df = signal_df[signal_df.index <= t1]
 
+    if signal:
+        signal.emit()
+
     # Get signal during shortened period
     sig = fourier_df['signal'].values
     
@@ -249,6 +343,34 @@ def detect_peaks(fourier_df, signal_df, t0 = None, t1 = None, min_thresh = 1900,
     fourier_df['signal'].iloc[indexes].plot(style='*', ax=ax3, title = 'zoomed beginning')
     ax3.axhline(y = min_thresh, linewidth=1, c = 'r')
     ax3.set_ylim((0, mx))
+
+    if true_df is not None:
+        true_peaks = true_df['peak time'] + diff
+        if t0:
+            true_peaks = true_peaks[true_peaks >= t0]
+        if t1:
+            true_peaks = true_peaks[true_peaks <= t1]
+
+        vals = fourier_df.index.values
+        inds = np.array([find_nearest(vals, item) for item in true_peaks.values])
+        
+        plt_vals = fourier_df_ma.ix[vals[inds]]
+        ax3.scatter(true_peaks.values, plt_vals, marker='*', c = 'r', zorder=100)
+
+
+    if signal:
+        print('second to last emit')
+        signal.emit()
+
+    if save_dir:
+
+        
+        fname = os.path.join(save_dir, 'peaks.png')
+        fig.savefig(fname)
+
+        fname = os.path.join(save_dir, 'FigureObject.peaks.pickle')
+        pickle.dump(fig, open(fname, 'wb')) 
+    
     
     return sfourier_df, ssignal_df, peaks
 
@@ -445,7 +567,7 @@ def visualize_clicks(ssignal_df, input_df, peaks, all_peaks, rate, min_thresh,
 
 
 def visualize_signal(signal_df, rate, outfile, audio_df, MAX_FRAMES = 20., _FRAME_BREAK = 5., 
-                figsz = (12,8), mult = 2**9):
+                figsz = (12,8), mult = 2**9, signal = None):
     '''
         Function to visualize clicks as an animated video created with matplotlib.animation 
         Combines the audio, with a video of the detected peaks 
@@ -498,8 +620,13 @@ def visualize_signal(signal_df, rate, outfile, audio_df, MAX_FRAMES = 20., _FRAM
 
     # Create figure and setup
     fig = plt.figure(figsize = figsz)
-    mx = np.max(np.max(df) * 1.05, 0)
-    mn = np.min(np.min(df) * 1.05, 0)
+    mx = np.max(np.max(df['signal']) * 1.05, 0)
+    mnn = np.min(df['signal'])
+    if mnn < 0:
+        mn = np.min(mnn * 1.05)
+    else:
+        mn = np.min(mnn * .95)
+
     ax = plt.axes(ylim = [mn, mx])
 
     # Main object for singal
@@ -553,7 +680,10 @@ def visualize_signal(signal_df, rate, outfile, audio_df, MAX_FRAMES = 20., _FRAM
         
         # If we are ready for a new frame, set it
         if df.index[i] >= (last + FRAME_BREAK):
+
             line, = set_x(True)
+            if signal:
+                signal.emit()
         
         return line,
 
@@ -643,3 +773,23 @@ def open_audio(raw_file, verbose = False, plt_every = 16, figsz = (12, 8)):
         signal_df['signal'][::plt_every].plot(title = 'Raw Measurements', figsize= figsz)
 
     return signal_df, rate, wav_file
+
+def clean_output_text(output_text):
+    with open(output_text, 'r') as ot:
+        df = pd.DataFrame([line[:-1].split(',') for line in ot.readlines()], columns = ['key', 'peak time'])
+    df['peak time'] = df['peak time'].astype(float)
+    df = df[df['peak time'].notnull()].copy()
+    df.ix[df['key'].map(lambda  x : "###DEL###" in x), 'key'] = '###DEL###'
+    weird_inds = df['key'].map(lambda x : (len(x) > 1) & (x != "###DEL###"))
+    df.ix[weird_inds, 'key'] = df.ix[weird_inds, 'key'].map(lambda  x : x[-1])
+    return df.copy()
+
+def build_input_df(signal_df, pks_df):
+    starts=  pks_df['start time'].to_dict()
+    ends = pks_df['end time'].to_dict()
+    lent= len(signal_df.ix[(signal_df.index >= starts[0]) & (signal_df.index <= ends[0]), 'signal'].values) - 1
+    
+    helper = lambda x : signal_df.ix[(signal_df.index >= starts[x]) & (signal_df.index <= ends[x]), 'signal'][:lent]
+    inputs = list(map(helper, range(pks_df.shape[0])))
+    CHARACTER_INPUTS = pd.concat([pks_df, pd.DataFrame(list(map(lambda x : x.reset_index(drop=True), inputs))).reset_index(drop=True)], axis = 1)
+    return CHARACTER_INPUTS

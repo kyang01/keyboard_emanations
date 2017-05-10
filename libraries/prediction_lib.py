@@ -195,7 +195,7 @@ def view_char(df, input_char, xlim = 6000, limit = 10):
     n = np.min([sub_df.shape[0], limit])
 
     if n < 1:
-        print 'No "%s" found' % input_char
+        print('No "%s" found' % input_char)
         return
     
     # Get the index where features begin
@@ -205,7 +205,7 @@ def view_char(df, input_char, xlim = 6000, limit = 10):
         lim = list(df.columns).index(0)
 
 
-    print 'Visualizing: %s' % input_char
+    print('Visualizing: %s' % input_char)
     
     # Plot histogram of coefficients, and report their confidence intervals 
     fig, axes = plt.subplots((n-1)/4+1, 4, figsize=(12, n*3/2))
@@ -330,7 +330,7 @@ def build_transmission_full(smooth = 0):
     '''
 
     # Unique chars are a-z and space
-    unique_chars = np.array([' '] + map(lambda x : chr(x + ord('a')), range(26)))
+    unique_chars = np.array([' '] + list(map(lambda x : chr(x + ord('a')), range(26))))
 
     # Number of unique
     n_unique = len(unique_chars)
@@ -404,7 +404,7 @@ def print_color(estimate, text, form_str = "\x1b[{}m{}\x1b[0m"):
         green characters for correct 
     '''
     correct = [estimate[i] == text[i] for i in range(len(estimate))]
-    return ''.join(map(lambda x : form_str.format(32, estimate[x]) if correct[x] else form_str.format(31, estimate[x]), range(len(estimate))))
+    return ''.join(list(map(lambda x : form_str.format(32, estimate[x]) if correct[x] else form_str.format(31, estimate[x]), range(len(estimate)))))
 
 
 
@@ -498,9 +498,9 @@ def run_hmm(input_df, text, num_clusters, t_smooth = 1, verbose = True,
 
     
     if verbose:
-        print 'Transmission smoothing:', t_smooth
-        print 'Accuracy:', acc, 'Without spaces:', acc_wospace
-        print 'guess:\n'
+        print('Transmission smoothing:', t_smooth)
+        print('Accuracy:', acc, 'Without spaces:', acc_wospace)
+        print('guess:\n')
         print_color(estimate, text)
 
     return estimate, acc, acc_wospace, score, hmm

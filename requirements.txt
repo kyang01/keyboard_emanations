@@ -1,6 +1,7 @@
 appdirs==1.4.3
 cycler==0.10.0
 ffmpy==0.2.2
+hmmlearn==0.2.0
 matplotlib==2.0.1
 numpy==1.12.1
 packaging==16.8
@@ -13,9 +14,12 @@ pyobjc-framework-Quartz==3.2.1
 pyparsing==2.2.0
 PyQt5==5.8.2
 python-dateutil==2.6.0
+python-speech-features==0.5
 pytz==2017.2
+scikit-learn==0.18.1
 scipy==0.19.0
 simpleaudio==1.0.1
 sip==4.19.2
 six==1.10.0
+sklearn==0.0
 tqdm==4.11.2
