@@ -31,6 +31,7 @@ class DefenseBackgroundThread(QThread):
         self.sounds = [key_sound, space_sound, multi_sound]
 
     def run(self):
+        print('defense')
         pass
     
     def startDefense(self):
