@@ -705,7 +705,7 @@ class ClusterDisplay(DisplayWidget):
 
 class PredictDisplay(DisplayWidget):
     def __init__(self, parent, mapp, item, BackgroundThread = PredictBackgroundThread, name = 'Predicting Text'):
-        self.mn_sm, self.mx_sm, self.vl_sm, self.skip = 0, 20, 2, 0.1
+        self.mn_sm, self.mx_sm, self.vl_sm, self.skip = 0, 100, 2, 0.1
         DisplayWidget.__init__(self, parent, mapp, item, BackgroundThread, name)
     
 
