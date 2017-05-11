@@ -40,6 +40,20 @@ On a mac, open up terminal.
 
 The start.sh script should install any missing dependencies, and then launch the application.
 
+The commands to launch the application are 
+
+```
+    source venv/bin/activate
+    python app.py
+```
+
+Installing requirements:
+
+```
+    source venv/bin/activate
+    pip install -r requirements.txt
+```
+
 ## Dependencies 
 
 The bash script start.sh should automatically install all dependencies on a mac. 
@@ -69,6 +83,10 @@ ffmpeg
 ## Data
 
 Note: Much of the data we used is missing due to file contraints of github. 
+
+Example datasets, some with labels, some without, can be found [here](https://drive.google.com/drive/folders/0Bx0bjNPTAO_sc1JwYWpTaHctNzA?usp=sharing)
+    
+
 
 ## Notebooks
 
