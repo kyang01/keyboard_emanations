@@ -36,6 +36,11 @@ from hmmlearn.hmm import MultinomialHMM
 # For feature extraction
 from python_speech_features import mfcc
 
+from pynput import keyboard
+import simpleaudio as sa
+from numpy import random
+import time
+
 
 def extract_cepstrum(df, rate, mfcc_start=0, mfcc_end=-1, winlen = 0.025, winstep = 0.01,
                     numcep = 16, nfilt = 32, nfft=512, lowfreq = 400, highfreq = 12000, noise = None):
@@ -304,14 +309,15 @@ def build_eta(df, unique_chars, num_clusters, do_all = False):
     space_ind = list(unique_chars).index(' ')
 
     # Fill in the space with its proportions 
-    Eta[space_ind,:] = get_props(df,num_clusters,  ch = ' ').values
+    if 'char' in df:
+        Eta[space_ind,:] = get_props(df,num_clusters,  ch = ' ').values
     
-    # Fill in the others with their proportions
-    if do_all:
-        uc = list(unique_chars)
-        for ch in uc:
-            space_ind = uc.index(ch)
-            Eta[space_ind,:] = get_props(df,num_clusters, ch = ch).values
+        # Fill in the others with their proportions
+        if do_all:
+            uc = list(unique_chars)
+            for ch in uc:
+                space_ind = uc.index(ch)
+                Eta[space_ind,:] = get_props(df,num_clusters, ch = ch).values
     
     # Get rows to sum to 1
     Eta/=Eta.sum(axis=1)[:,None]
@@ -364,7 +370,6 @@ def build_transmission_full(smooth = 0):
 
     return A_df, n_unique, unique_chars, id_to_char, char_to_id
 
-
 def to_text(results, id_to_char):
     '''
         Convert the Results from the hmm into plaintext
@@ -374,6 +379,7 @@ def to_text(results, id_to_char):
             id_to_char : mapping of id to character 
     '''
     return ''.join(map(lambda x : id_to_char[x], results))
+
 def accuracy(a,b):
     '''
         Determine similarity of strings a and b 
@@ -407,8 +413,6 @@ def print_color(estimate, text, form_str = "\x1b[{}m{}\x1b[0m"):
     '''
     correct = [estimate[i] == text[i] for i in range(len(estimate))]
     return ''.join(list(map(lambda x : form_str.format(32, estimate[x]) if correct[x] else form_str.format(31, estimate[x]), range(len(estimate)))))
-
-
 
 def run_hmm_model(input_df, n_unique, A_df, Eta, n_iter = 10000, 
                         tol=1e-2, verbose = False, params = 'e', init_params = ''):
@@ -495,15 +499,24 @@ def run_hmm(input_df, text, num_clusters, t_smooth = 1, verbose = True,
     # Get the estimated result
     estimate = to_text(results, id_to_char)
 
-    # Score result with and without spaces
-    acc, acc_wospace = accuracy(estimate, text), accuracywospace(estimate, text)
+    if text:
+        # Score result with and without spaces
+        acc, acc_wospace = accuracy(estimate, text), accuracywospace(estimate, text)
+    else:
+        acc, acc_wospace = None, None
 
     
     if verbose:
         print('Transmission smoothing:', t_smooth)
         print('Accuracy:', acc, 'Without spaces:', acc_wospace)
-        print('guess:\n')
-        print_color(estimate, text)
+
+        if text:
+            print('guess:\n')
+            print_color(estimate, text)
+        else:
+            print(estimate)
+
+
 
     return estimate, acc, acc_wospace, score, hmm
 

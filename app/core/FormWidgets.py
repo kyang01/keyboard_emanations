@@ -72,10 +72,13 @@ class DecoderDisplay(QWidget):
                 cluster_keystrokes.clicked.connect(partial(self.parent.addWidg, button_to_formclass['cluster_keystrokes']))
                 grid.addWidget(cluster_keystrokes, 5, 0)
 
-                # predict the text of the keystrokes
-                predict_text = QPushButton("Predict Text")
-                predict_text.clicked.connect(partial(self.parent.addWidg, button_to_formclass['predict_text']))
-                grid.addWidget(predict_text, 6, 0)
+                cepstrum_df_floc = os.path.join(self.parent.threshold_directory, 'processing_clusters.csv')
+
+                if os.path.exists(cepstrum_df_floc):
+                    # predict the text of the keystrokes
+                    predict_text = QPushButton("Predict Text")
+                    predict_text.clicked.connect(partial(self.parent.addWidg, button_to_formclass['predict_text']))
+                    grid.addWidget(predict_text, 6, 0)
 
         # predict the text of the keystrokes
         confuse_attacker = QPushButton("Confuse Attacker")
@@ -651,7 +654,7 @@ class ClusterDisplay(DisplayWidget):
         self.N_COMPONENTS.setMinimum(self.mn_comp)
         self.N_COMPONENTS.setMaximum(self.mx_comp)
         self.N_COMPONENTS.setValue(self.vl_comp)
-        fbox.addRow(QLabel("Number of groups to cluster keystrokes:"), self.N_COMPONENTS)
+        fbox.addRow(QLabel("Number of components to run PCA on, 0 implies no PCA:"), self.N_COMPONENTS)
 
         # number of components for pca
         self.winlen = QSpinBox(self)
@@ -685,7 +688,7 @@ class ClusterDisplay(DisplayWidget):
             'save_dir' : self.parent.threshold_directory, 
             'rate' : self.parent.metadata['raw_rate'],
             'MFCC_START' : int(self.mfcc_start.value()), 
-            'MFCC_END' : int(self.mfcc_start.value()),
+            'MFCC_END' : int(self.mfcc_end.value()),
             'winlen' : float(self.winlen.value()) / 1000., 
             'winstep' : float(self.winstep.value()) / 1000., 
             'numcep' : 16, 
@@ -696,11 +699,13 @@ class ClusterDisplay(DisplayWidget):
             'N_COMPONENTS' : n_comp if n_comp != 0 else None,
             'nfft' : self.nfft
         }
+        self.parent.add_metadata_item('num-clusters', inputs['NUM_CLUSTERS'])
 
         return inputs
 
 class PredictDisplay(DisplayWidget):
     def __init__(self, parent, mapp, item, BackgroundThread = PredictBackgroundThread, name = 'Predicting Text'):
+        self.mn_sm, self.mx_sm, self.vl_sm, self.skip = 0, 20, 2, 0.1
         DisplayWidget.__init__(self, parent, mapp, item, BackgroundThread, name)
     
 
@@ -708,18 +713,86 @@ class PredictDisplay(DisplayWidget):
         '''
             builds the form
         '''
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setMinimumSize(300,300)
+        self.txt_space = QLabel("No Predictions Yet")
+
+        scrollLayout = QVBoxLayout(self.txt_space)
+        self.txt_space.setLayout(scrollLayout)
+        scroll.setWidget(self.txt_space)
+
+
+        scroll2 = QScrollArea(self)
+        scroll2.setMinimumSize(300,300)
+        scroll2.setWidgetResizable(True)
+        self.actual_space = QLabel("No Predictions Yet")
+
+        scrollLayout = QVBoxLayout(self.actual_space)
+        self.actual_space.setLayout(scrollLayout)
+        scroll2.setWidget(self.actual_space)
+
+
+        fbox.addRow(scroll, scroll2)
+
         
+
+        self.smoothing = QDoubleSpinBox(self)
+        self.smoothing.setMinimum(self.mn_sm)
+        self.smoothing.setMaximum(self.mx_sm)
+        self.smoothing.setValue(self.vl_sm)
+        self.smoothing.setSingleStep(self.skip)
+        fbox.addRow(QLabel("Transmission Smoothing Parameter:"), self.smoothing)
+
         add_button = QPushButton("predict na")
         add_button.clicked.connect(self.submit_callback)
         fbox.addRow(add_button)
 
         return fbox
-    
+
+    def display_prediction(self, txt):
+        '''
+            Displays the predicted text
+        '''
+        txt = textwrap.fill(txt, 50)
+        self.txt_space.setText(txt)
+
+        print(self.parent.input_text)
+        if os.path.exists(self.parent.input_text):
+            with open(self.parent.input_text,'r') as f:
+                act_txt = f.read()
+
+            act_txt = textwrap.fill(act_txt, 50)
+            self.actual_space.setText(act_txt)
+
+    def submit_callback(self):
+        # Update progress bar
+        self.mapp.status_label.setText('%s...' % self.name)
+
+        inputs = self.get_inputs()
+        bk_thrd = self.BackgroundThread(parent = self.parent.parent.parent,
+                                    done = self.parent.add_p, 
+                                    finished = partial(self.parent.finished, 'Finished %s!' % self.name),
+                                    inputs = inputs) 
+        bk_thrd.start()
+
+
     
     def get_inputs(self):
         
-        self.mapp.progress_bar.setMaximum(3)
-        inputs = {}
+        self.mapp.progress_bar.setMaximum(6)
+
+        cepstrum_df_floc = os.path.join(self.parent.threshold_directory, 'processing_clusters.csv')
+        inputs =  {
+            'smooth' : float(self.smoothing.value()),
+            'NUM_CLUSTERS' : int(self.parent.metadata['num-clusters']),
+            'DO_ALL' : False,
+            'cepstrum_df_floc' : cepstrum_df_floc,
+            'targ_s' : None,
+            'VERBOSE' : True,
+            'TOL' : 1e-2,
+            'display_prediction' : self.display_prediction
+        }
         return inputs
 
 class ConfuseDisplay(DisplayWidget):

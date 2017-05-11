@@ -3,9 +3,6 @@
 '''
 
 from .misc import *
-from .defense import DefenseBackgroundThread
-
-
 
 class BackgroundThread(QThread):
 	'''
@@ -185,15 +182,96 @@ class ClusterBackgroundThread(BackgroundThread):
 class PredictBackgroundThread(BackgroundThread):
 	'''
 	'''
+	send_estimate = pyqtSignal(str, name='send_estimate')
 
 	def __init__(self, parent, done, finished, inputs):
 		super(PredictBackgroundThread, self).__init__(parent, done, finished, inputs)
+		self.send_estimate.connect(inputs['display_prediction'])
 		
-
 	def run(self):
 		'''
 			Changes the status bar to say the parent tool is running 
 			and then calls the process function
 		'''
 		self.add_post.emit()
-		print('predict backg')
+
+
+		cepstrum_df = pd.read_csv(self.inputs['cepstrum_df_floc'], index_col=0)
+		self.add_post.emit()
+
+		A_df, n_unique, unique_chars, id_to_char, char_to_id  = pl.build_transmission_full()
+		self.add_post.emit()
+
+
+		#Build emissions matrix
+		Eta = pl.build_eta(cepstrum_df, unique_chars, self.inputs['NUM_CLUSTERS'],
+												 do_all = self.inputs['DO_ALL'])
+		self.add_post.emit()
+
+		# runn hmm model
+		estimate, acc, acc_wospace, score, hmm = pl.run_hmm(cepstrum_df, self.inputs['targ_s'], 
+		                                                    self.inputs['NUM_CLUSTERS'], t_smooth = self.inputs['smooth'], 
+		                                                    tol = self.inputs['TOL'],
+		                                                    do_all = self.inputs['DO_ALL'], verbose = self.inputs['VERBOSE'])  
+
+		self.send_estimate.emit(estimate)
+
+		self.add_post.emit()
+
+class DefenseBackgroundThread(BackgroundThread):
+    '''
+        Plays keyboard sounds to interfere with the detection algorithm.
+        Start and End are the only important public API functions
+    '''
+    def __init__(self, parent, done, finished, inputs):
+        super(DefenseBackgroundThread, self).__init__(parent, done, finished, inputs)
+        self.defending = False
+        self.interfering = False
+        
+        # Set up sound files
+        key_sound = sa.WaveObject.from_wave_file("app/core/assets/KeyPress.wav")
+        space_sound = sa.WaveObject.from_wave_file("app/core/assets/SpacePress.wav")
+        multi_sound = sa.WaveObject.from_wave_file("app/core/assets/FastKeys.wav")
+        self.sounds = [key_sound, space_sound, multi_sound]
+
+    def run(self):
+        self.startDefense()
+    
+    def startDefense(self):
+        print("start")
+        self.defending = True
+        # Listen to keyboard
+        with keyboard.Listener(on_press=self.on_press) as listener:
+            listener.join()
+
+    def endDefense(self):
+        print("stop")
+        self.defending = False
+        keyboard.Listener.StopException
+
+    # Only detects special keys (shift, option...) due to OS X security
+    def on_press(self, key):
+        if not self.interfering:
+            self.playInterference()
+
+    def playInterference(self):
+        self.interfering = True
+        play_at = random.exponential(0.1)
+        
+        # print("play at " + str(play_at))
+        
+        # Wait, then play sound
+        time.sleep(play_at)
+        
+        # Play sound
+        wav_obj = random.choice(self.sounds, p=[0.4,0.4,0.2])
+        play_obj = wav_obj.play()
+        play_obj.wait_done()
+        
+        # 60% possibility of recurrance
+        if random.rand() > 0.4:
+            # Continue keystrokes recursively
+            self.playInterference()
+        else:
+            self.interfering = False
+            

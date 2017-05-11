@@ -337,13 +337,4 @@ class Decoder(object):
 			Launch a qwidget form widg
 		'''
 		self.w = widg(self, self.mapp, self.getitem())
-		self.w.show()
-		
-	def get_random_keystoke(self, key = None):
-		'''
-			Returns the sound of a random keystroke, if key is None
-			it will return a random sound, if key is a specific character,
-			then a random keystroke of that character will be returned if it exists
-		'''
-		#TODO 
-		pass
+		self.w.show()		
