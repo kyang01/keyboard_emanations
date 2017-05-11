@@ -2,9 +2,7 @@
 
 Exploring unsupervised learning techniques for predicting keystrokes presses only using the raw audio. We fourier transform the audio, and simple thresholding to create keystrokes. We then use kmeans++ to cluster the keytrokes and use the clusters as the emissions in a hidden markov model, combined with the viterbi algorithm, to predict text. 
 
-Included is a GUI to process audio.
-
- [ ADD YOUTUBE CLIP HERE]
+Included is a GUI to process audio. Check the [demo](https://www.youtube.com/watch?v=J6ZFBYUAtmM)
 
 ## Structure
 ```
