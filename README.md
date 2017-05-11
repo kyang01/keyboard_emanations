@@ -86,6 +86,7 @@ Note: Much of the data we used is missing due to file contraints of github.
 
 Example datasets, some with labels, some without, can be found [here](https://drive.google.com/drive/folders/0Bx0bjNPTAO_sc1JwYWpTaHctNzA?usp=sharing)
     
+This [process](https://drive.google.com/open?id=0B-gA6It5SMWiQml3NDQ0aHUwVXc) folder can be downloaded and placed in the directory with examples of processed data, and will be loaded into the GUI application.
 
 
 ## Notebooks
